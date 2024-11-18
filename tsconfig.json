@@ -1,0 +1,21 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": false, // Temporarily disable strict mode to check if it works
+    "jsx": "react-native", 
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js", // Ensure this is included to check JavaScript files
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts",
+    "components/SliderComponent.js"
+  ]
+}
