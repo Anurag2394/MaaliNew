@@ -5,7 +5,10 @@ import { PaperProvider } from 'react-native-paper';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { getUserSession } from '@/utiles/auth';  // Assuming you have a function to check login status
+import HeaderComponent from '@/components/HeaderComponent';
+import SearchComponent from '@/components/SearchComponent';
+import Login from '@/components/login';
+import { getUserSession } from '@/utiles/auth'; // Assuming you have a function to check login status
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -19,7 +22,6 @@ export default function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    // Check if user is logged in (from storage, context, etc.)
     const checkLoginStatus = async () => {
       const userSession = await getUserSession();  // You need to implement this check
       setIsLoggedIn(!!userSession); // Update state based on session
@@ -35,26 +37,29 @@ export default function RootLayout() {
     return null; // Prevent rendering until fonts are loaded
   }
 
+  // If user is not logged in, show the Login screen
+  if (!isLoggedIn) {
+    return (
+      <PaperProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Login 
+            loginHandler= {(value) => setIsLoggedIn(value)}
+          />
+        </ThemeProvider>
+      </PaperProvider>
+    );
+  }
+
+  // If the user is logged in, show the main app screens
   return (
     <PaperProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <HeaderComponent />
+        <SearchComponent />
         <Stack>
-          {isLoggedIn ? (
-            // Main App Screens (Only show this if logged in)
-            <>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="product" options={{ title: 'Products' }} />
-              <Stack.Screen name="login" options={{ title: 'login' }} />
-              <Stack.Screen name="+not-found" />
-            </>
-          ) : (
-            // Show Login Flow (If Not Logged In)
-            <>
-              <Stack.Screen name="login" options={{ presentation: 'modal' }} />
-              {/* <Stack.Screen name="signin" options={{ presentation: 'modal' }} />
-              <Stack.Screen name="signup" options={{ presentation: 'modal' }} /> */}
-            </>
-          )}
+          <Stack.Screen name="Maali" options={{ headerShown: false }} />
+          <Stack.Screen name="product" options={{ title: 'Products' }} />
+          <Stack.Screen name="+not-found" />
         </Stack>
       </ThemeProvider>
     </PaperProvider>

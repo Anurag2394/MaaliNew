@@ -11,12 +11,7 @@ export default function TabLayout() {
           <Ionicons name='home-outline' size={22} color={color} />
         )
       }} />
-       <Tabs.Screen name='login' options={{
-        title: 'login',
-        tabBarIcon: ({ color }) => (
-          <Ionicons name='home-outline' size={22} color={color} />
-        )
-      }} />
+      
       <Tabs.Screen name='categories' options={{
         title: 'Categories',
         tabBarIcon: ({ color }) => (

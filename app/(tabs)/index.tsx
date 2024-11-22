@@ -10,8 +10,7 @@ const HomeScreen = (props: Props) => {
     <View style={styles.container}>
        <View style= {{height:300}}><SliderComponent /></View>
        <View style= {{ height: 100}}><CircleText /></View>
-    </View>
-  )
+    </View>   )
 }
 
 export default HomeScreen

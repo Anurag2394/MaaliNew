@@ -1,11 +1,14 @@
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const getUserSession = async () => {
   try {
-    const userSession = await SecureStore.getItemAsync('userSession');
-    return userSession ? JSON.parse(userSession) : null;
+    const session = await AsyncStorage.getItem('user_session'); // Retrieve session data from AsyncStorage
+    if (session) {
+      return JSON.parse(session); // Parse and return session if it exists
+    }
+    return null; // Return null if session doesn't exist
   } catch (error) {
-    console.error("Failed to retrieve user session", error);
-    return null;
+    console.error("Error retrieving user session:", error);
+    return null; // Return null in case of error
   }
 };
