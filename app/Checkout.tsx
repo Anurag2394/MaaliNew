@@ -38,7 +38,9 @@ const CheckoutPage = () => {
       if (data.results) {
         // Check if results is a string and parse it
         const parsedProducts = typeof data.results === 'string' ? JSON.parse(data.results) : data.results;
+        if(parsedProducts.length > 0) {
         setItems(parsedProducts);
+        }
       }
   
       // Now fetch the subtotal from the calculateSubtotal API
@@ -111,25 +113,50 @@ const CheckoutPage = () => {
   };
 
   // Clear cart functionality
-  const handleClearCart = () => {
-    fetch(`${config.CART_URL}/cart/clearCart`, {
-      method: 'POST',  // Assuming this is a POST request to clear the cart
+ const handleClearCart = () => {
+  fetch(`${config.CART_URL}/cart/clearCart`, {
+    method: 'POST',  // Assuming this is a POST request to clear the cart
+    headers: {
+      'Content-Type': 'application/json', // Set the content type as JSON
+    },
+    body: JSON.stringify({ phone_number: phoneNumber, soft_delete: 1 }),
+  })
+    .then(response => {
+      const contentType = response.headers.get('Content-Type');
+      if (contentType && contentType.includes('application/json')) {
+        // If the response is JSON, parse it as JSON
+        return response.json();
+      } else {
+        // Otherwise, parse it as plain text
+        return response.text();
+      }
     })
-      .then(response => response.text())  // Parse the response as text
-      .then(data => {
-        if (data === "success") {
+    .then(data => {
+      if (typeof data === 'string') {
+        // Handle plain text response (e.g., "success", "Item removed", etc.)
+        if (data === "success" || data === "Item removed from the cart successfully.") {
           setItems([]); // Clear the cart items from the state
           setSubtotal(0); // Reset subtotal as cart is cleared
           Alert.alert('Success', 'Your cart has been cleared.');
         } else {
           Alert.alert('Error', 'There was an issue clearing your cart.');
         }
-      })
-      .catch(error => {
-        console.error('Error clearing cart:', error);
-        Alert.alert('Error', 'Failed to clear the cart.');
-      });
-  };
+      } else if (data && data.status === 200) {
+        // If the response is JSON and status is 200, proceed with clearing the cart
+        setItems([]); // Clear the cart items from the state
+        setSubtotal(0); // Reset subtotal as cart is cleared
+        Alert.alert('Success', 'Your cart has been cleared.');
+      } else {
+        // Handle unexpected responses
+        Alert.alert('Error', 'There was an issue clearing your cart.');
+      }
+    })
+    .catch(error => {
+      console.error('Error clearing cart:', error);
+      Alert.alert('Error', 'Failed to clear the cart.');
+    });
+};
+
 
   // Handle remove item from cart
   const handleRemoveItem = (itemId) => {
@@ -141,7 +168,7 @@ const CheckoutPage = () => {
       body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, soft_delete: 1 }), // Sending the item ID to remove
     })
       .then(data => {
-        if (data.status == 200) {
+        if (data.status == 200 ) {
           // Item was successfully removed, so let's re-fetch the cart details
           fetchCartDetails(); // Re-fetch cart details after removing the item
           
@@ -235,9 +262,9 @@ const CheckoutPage = () => {
       </TouchableOpacity>
 
       {/* Clear Cart Button */}
-      <TouchableOpacity style={styles.clearCartButton} onPress={handleClearCart}>
+      {items.length > 0 &&<TouchableOpacity style={styles.clearCartButton} onPress={handleClearCart}>
         <Text style={styles.clearCartButtonText}>Clear Cart</Text>
-      </TouchableOpacity>
+      </TouchableOpacity>}
     </ScrollView>
   );
 };

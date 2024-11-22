@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, FlatList, Image, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router'; // Import useSearchParams
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import config from '@/config';
 
 type Product = {
@@ -21,31 +21,27 @@ type Product = {
 
 const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({}); // Store selected size for each product
-  const { product } = useLocalSearchParams(); // Get 'product' from query params
-  const router = useRouter(); // Use router for navigation
+  const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
+  const [cart, setCart] = useState<{ [key: string]: { quantity: number; price: number; discount: number } }>({});
+  const { product } = useLocalSearchParams();
+  const router = useRouter();
 
-  // If no 'product' query param, default to 'plants/cacti'
   const queryTags = product || 'plants/cacti'; 
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Send the request to fetch products based on tags (product in this case)
-        const productRequestPayload = { tags: queryTags }; // Use 'product' as tags
+        const productRequestPayload = { tags: queryTags };
         
         const response = await fetch(`${config.BASE_URL}/productCatalog/getProductsByTags`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(productRequestPayload), // Pass the tags in the request body
+          body: JSON.stringify(productRequestPayload),
         });
 
         const data = await response.json();
-        console.log(data, 'data');
-
-        // Assuming `data.results` contains the list of products
         if (typeof data.results === 'string') {
           const parsedProducts = JSON.parse(data.results);
           setProducts(parsedProducts);
@@ -56,24 +52,130 @@ const ProductList = () => {
     };
 
     fetchProducts();
-  }, [queryTags]); // Dependency on queryTags to refetch when the tags change
+  }, [queryTags]);
 
-  // Navigate to the product page (Checkout)
-  const navigateToCheckout = (product: Product) => {
-    router.push({ pathname: '/Checkout', query: { productId: product.productId } });
+  // Add item to cart and make API call
+  const addToCart = async (product: Product, size: string) => {
+    const selectedPrice = product.price[size];
+    const selectedDiscount = 0; // Assuming no discount for simplicity
+    const phoneNumber = 7417422095; // Replace with actual user phone number
+    
+    const payload = {
+      phone_number: phoneNumber,
+      product_id: product.productId,
+      quantity: 1, // Default quantity
+      price: selectedPrice,
+      discount: selectedDiscount,
+    };
+
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/addItemToCart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log(data, 'Cart item added');
+      
+      // Update the cart state
+      setCart((prevCart) => ({
+        ...prevCart,
+        [product.productId]: {
+          quantity: (prevCart[product.productId]?.quantity || 0) + 1,
+          price: selectedPrice,
+          discount: selectedDiscount,
+        },
+      }));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
   };
 
-  // Update selected size for a specific product
-  const handleSizeChange = (productId: string, size: string) => {
-    setSelectedSizes(prev => ({
-      ...prev,
-      [productId]: size,
-    }));
+  // Increment item quantity in cart
+  const incrementQuantity = async (productId: string) => {
+    try {
+      const updatedQuantity = (cart[productId]?.quantity || 0) + 1;
+      const phoneNumber = 7417422095; // Replace with actual user phone number
+
+      const payload = {
+        phone_number: phoneNumber,
+        product_id: productId,
+        quantity: updatedQuantity,
+      };
+
+      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log(data, 'Quantity updated');
+
+      // If the API call is successful, update the cart state
+      setCart((prevCart) => ({
+        ...prevCart,
+        [productId]: {
+          ...prevCart[productId],
+          quantity: updatedQuantity,
+        },
+      }));
+    } catch (error) {
+      console.error('Error incrementing quantity:', error);
+    }
+  };
+
+  // Decrement item quantity in cart
+  const decrementQuantity = async (productId: string) => {
+    try {
+      const updatedQuantity = Math.max((cart[productId]?.quantity || 0) - 1, 0);
+      const phoneNumber = 7417422095; // Replace with actual user phone number
+
+      const payload = {
+        phone_number: phoneNumber,
+        product_id: productId,
+        quantity: updatedQuantity,
+      };
+
+      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log(data, 'Quantity updated');
+
+      // If the API call is successful, update the cart state
+      setCart((prevCart) => ({
+        ...prevCart,
+        [productId]: {
+          ...prevCart[productId],
+          quantity: updatedQuantity,
+        },
+      }));
+
+      // If quantity reaches 0, remove the item from the cart
+      if (updatedQuantity === 0) {
+        const updatedCart = { ...cart };
+        delete updatedCart[productId];
+        setCart(updatedCart);
+      }
+    } catch (error) {
+      console.error('Error decrementing quantity:', error);
+    }
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    // Get the selected size for the current product
     const selectedSize = selectedSizes[item.productId] || 'Regular';
+    const isInCart = cart[item.productId]?.quantity > 0;
 
     return (
       <View style={styles.productContainer}>
@@ -84,17 +186,33 @@ const ProductList = () => {
             <TouchableOpacity
               key={size}
               style={[styles.sizeButton, selectedSize === size && styles.selectedSizeButton]}
-              onPress={() => handleSizeChange(item.productId, size)} // Set the selected size for the current product
-            >
+              onPress={() => setSelectedSizes(prev => ({ ...prev, [item.productId]: size }))}>
               <Text style={styles.sizeButtonText}>{size}</Text>
             </TouchableOpacity>
           ))}
         </View>
         <Text style={styles.price}>{`${item.currency} ${item.price[selectedSize]}`}</Text>
+
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.addToCartButton} onPress={() => navigateToCheckout(item)}>
-            <Text style={styles.addToCartText}>Add to Cart</Text>
-          </TouchableOpacity>
+          {/* Show "Add to Cart" button only if the item is not already in the cart */}
+          {!isInCart && (
+            <TouchableOpacity style={styles.addToCartButton} onPress={() => addToCart(item, selectedSize)}>
+              <Text style={styles.addToCartText}>Add to Cart</Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Quantity Adjuster */}
+          {isInCart && (
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity onPress={() => decrementQuantity(item.productId)}>
+                <Text style={styles.quantityButton}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.quantityText}>{cart[item.productId]?.quantity}</Text>
+              <TouchableOpacity onPress={() => incrementQuantity(item.productId)}>
+                <Text style={styles.quantityButton}>+</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -127,7 +245,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    position: 'relative',
   },
   image: {
     width: 100,
@@ -178,6 +295,19 @@ const styles = StyleSheet.create({
   addToCartText: {
     color: '#fff',
     fontSize: 14,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    padding: 5,
+  },
+  quantityText: {
+    fontSize: 16,
+    marginHorizontal: 10,
   },
 });
 
