@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, FlatList, Image, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, FlatList, Image, Text, StyleSheet, TouchableOpacity, Modal, Animated, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Rating } from 'react-native-ratings'; // Import Rating component
 import config from '@/config';
 
 type Product = {
@@ -12,8 +13,8 @@ type Product = {
   price: { Regular: number; Large: number; XL: number };
   currency: string;
   stockQuantity: { Regular: number; Large: number; XL: number };
-  images: string[];
-  ratings: { averageRating: number; numberOfReviews: number };
+  images: string[]; // Array of image URLs
+  ratings: { averageRating: number; numberOfReviews: number }; // Ratings object
   tags: string[];
   dateAdded: string;
   careInstructions: { watering: string; light: string; fertilizing: string };
@@ -23,16 +24,22 @@ const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
   const [cart, setCart] = useState<{ [key: string]: { quantity: number; price: number; discount: number } }>({});
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
+  const [modalSlideAnim] = useState(new Animated.Value(0)); // For modal sliding animation
+  const [isItemAdded, setIsItemAdded] = useState(false);
+  const [fadeOutAnimation] = useState(new Animated.Value(1)); // For fade out of the "Go to Cart" button
+
   const { product } = useLocalSearchParams();
   const router = useRouter();
 
-  const queryTags = product || 'plants/cacti'; 
+  const queryTags = product || 'plants/cacti';
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const productRequestPayload = { tags: queryTags };
-        
+
         const response = await fetch(`${config.BASE_URL}/productCatalog/getProductsByTags`, {
           method: 'POST',
           headers: {
@@ -54,260 +61,349 @@ const ProductList = () => {
     fetchProducts();
   }, [queryTags]);
 
-  // Add item to cart and make API call
-  const addToCart = async (product: Product, size: string) => {
+  // Modify cart (add, increment, decrement)
+  const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
     const selectedPrice = product.price[size];
-    const selectedDiscount = 0; // Assuming no discount for simplicity
-    const phoneNumber = 7417422095; // Replace with actual user phone number
-    
+    const selectedDiscount = 0;
+    const currentQuantity = cart[product.productId]?.quantity || 0;
+
+    let newQuantity = currentQuantity;
+
+    if (action === 'increment') {
+      newQuantity += 1;
+    } else if (action === 'decrement' && currentQuantity > 0) {
+      newQuantity -= 1;
+    }
+
     const payload = {
-      phone_number: phoneNumber,
+      phone_number: 7417422095,
       product_id: product.productId,
-      quantity: 1, // Default quantity
+      quantity: newQuantity,
       price: selectedPrice,
       discount: selectedDiscount,
     };
 
     try {
-      const response = await fetch('http://192.168.29.14:8002/cart/addItemToCart', {
+      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      console.log(data, 'Cart item added');
-      
-      // Update the cart state
       setCart((prevCart) => ({
         ...prevCart,
         [product.productId]: {
-          quantity: (prevCart[product.productId]?.quantity || 0) + 1,
+          quantity: newQuantity,
           price: selectedPrice,
           discount: selectedDiscount,
         },
       }));
     } catch (error) {
-      console.error('Error adding to cart:', error);
+      console.error('Error modifying cart:', error);
     }
-  };
-
-  // Increment item quantity in cart
-  const incrementQuantity = async (productId: string) => {
-    try {
-      const updatedQuantity = (cart[productId]?.quantity || 0) + 1;
-      const phoneNumber = 7417422095; // Replace with actual user phone number
-
-      const payload = {
-        phone_number: phoneNumber,
-        product_id: productId,
-        quantity: updatedQuantity,
-      };
-
-      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      console.log(data, 'Quantity updated');
-
-      // If the API call is successful, update the cart state
-      setCart((prevCart) => ({
-        ...prevCart,
-        [productId]: {
-          ...prevCart[productId],
-          quantity: updatedQuantity,
-        },
-      }));
-    } catch (error) {
-      console.error('Error incrementing quantity:', error);
-    }
-  };
-
-  // Decrement item quantity in cart
-  const decrementQuantity = async (productId: string) => {
-    try {
-      const updatedQuantity = Math.max((cart[productId]?.quantity || 0) - 1, 0);
-      const phoneNumber = 7417422095; // Replace with actual user phone number
-
-      const payload = {
-        phone_number: phoneNumber,
-        product_id: productId,
-        quantity: updatedQuantity,
-      };
-
-      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      console.log(data, 'Quantity updated');
-
-      // If the API call is successful, update the cart state
-      setCart((prevCart) => ({
-        ...prevCart,
-        [productId]: {
-          ...prevCart[productId],
-          quantity: updatedQuantity,
-        },
-      }));
-
-      // If quantity reaches 0, remove the item from the cart
-      if (updatedQuantity === 0) {
-        const updatedCart = { ...cart };
-        delete updatedCart[productId];
-        setCart(updatedCart);
-      }
-    } catch (error) {
-      console.error('Error decrementing quantity:', error);
-    }
-  };
+  }, [cart]);
 
   const renderProduct = ({ item }: { item: Product }) => {
-    const selectedSize = selectedSizes[item.productId] || 'Regular';
     const isInCart = cart[item.productId]?.quantity > 0;
+
+    const openModal = (product: Product) => {
+      setCurrentProduct(product);
+      setIsModalVisible(true);
+
+      // Slide the modal up
+      Animated.timing(modalSlideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    };
 
     return (
       <View style={styles.productContainer}>
-        <Image source={{ uri: item.images[0].replace('dl=0', 'raw=1') }} style={styles.image} />
-        <Text style={styles.title}>{item.productName}</Text>
-        <View style={styles.sizeContainer}>
-          {['Regular', 'Large', 'XL'].map((size) => (
-            <TouchableOpacity
-              key={size}
-              style={[styles.sizeButton, selectedSize === size && styles.selectedSizeButton]}
-              onPress={() => setSelectedSizes(prev => ({ ...prev, [item.productId]: size }))}>
-              <Text style={styles.sizeButtonText}>{size}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <Text style={styles.price}>{`${item.currency} ${item.price[selectedSize]}`}</Text>
-
-        <View style={styles.actionsContainer}>
-          {/* Show "Add to Cart" button only if the item is not already in the cart */}
-          {!isInCart && (
-            <TouchableOpacity style={styles.addToCartButton} onPress={() => addToCart(item, selectedSize)}>
-              <Text style={styles.addToCartText}>Add to Cart</Text>
-            </TouchableOpacity>
-          )}
-          
-          {/* Quantity Adjuster */}
+        <View style={styles.imageContainer}>
+          <Image
+            source={{ uri: item.images[0].replace('dl=0', 'raw=1') }}
+            style={styles.image}
+            resizeMode="stretch"
+          />
           {isInCart && (
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity onPress={() => decrementQuantity(item.productId)}>
-                <Text style={styles.quantityButton}>-</Text>
-              </TouchableOpacity>
-              <Text style={styles.quantityText}>{cart[item.productId]?.quantity}</Text>
-              <TouchableOpacity onPress={() => incrementQuantity(item.productId)}>
-                <Text style={styles.quantityButton}>+</Text>
-              </TouchableOpacity>
+            <View style={styles.ribbon}>
+              <Text style={styles.ribbonText}>Added to Cart</Text>
             </View>
           )}
+        </View>
+
+        <Text style={styles.title}>{item.productName}</Text>
+
+        {/* Display the star rating */}
+        <View style={styles.ratingContainer}>
+          <Rating
+            type="star"
+            ratingCount={5}
+            imageSize={20}
+            readonly
+            startingValue={item.ratings.averageRating}
+            style={styles.rating}
+          />
+          <Text style={styles.reviewCount}>{item.ratings.numberOfReviews} reviews</Text>
+        </View>
+
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity style={styles.addToCartButton} onPress={() => openModal(item)}>
+            <Text style={styles.addToCartText}>Add to Cart</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
   };
 
+  const handleAddToCart = (product: Product) => {
+    setIsItemAdded(true);
+    // Trigger the fade-out animation for the "Go to Cart" button after 4 seconds
+    setTimeout(() => {
+      Animated.timing(fadeOutAnimation, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+    }, 4000);
+
+    // Add the product to the cart
+    modifyCart(product, selectedSizes[product.productId] || 'Regular', 'increment');
+
+    // Close the modal after adding the item to the cart
+    setIsModalVisible(false);
+  };
+
+  const closeModal = () => {
+    Animated.timing(modalSlideAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      setIsModalVisible(false); // Hide modal after animation
+    }, 300);
+  };
+
   return (
-    <FlatList
-      data={products}
-      keyExtractor={(item) => item.productId}
-      renderItem={renderProduct}
-      numColumns={2}
-      columnWrapperStyle={styles.row}
-    />
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={products}
+        keyExtractor={(item) => item.productId}
+        renderItem={renderProduct}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+      />
+
+      <Modal
+        visible={isModalVisible}
+        onRequestClose={closeModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <Animated.View
+            style={[styles.modalContainer, { opacity: fadeOutAnimation }]}>
+            <Animated.View
+              style={[
+                styles.modalContent,
+                {
+                  transform: [
+                    {
+                      translateY: modalSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [500, 0], // Slide up effect
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              {currentProduct && (
+                <>
+                  <Text style={styles.modalTitle}>{currentProduct.productName}</Text>
+
+                  <View style={styles.sizeContainer}>
+                    {['Regular', 'Large', 'XL'].map((size) => (
+                      <TouchableOpacity
+                        key={size}
+                        style={[
+                          styles.sizeButton,
+                          selectedSizes[currentProduct.productId] === size && styles.selectedSizeButton,
+                        ]}
+                        onPress={() => setSelectedSizes((prev) => ({ ...prev, [currentProduct.productId]: size }))}>
+                        <Text style={styles.sizeButtonText}>{size}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.price}>
+                    {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
+                  </Text>
+
+                  <View style={styles.quantityContainer}>
+                    <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId] || 'Regular', 'decrement')}>
+                      <Text style={styles.quantityButton}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{cart[currentProduct.productId]?.quantity || 0}</Text>
+                    <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId] || 'Regular', 'increment')}>
+                      <Text style={styles.quantityButton}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(currentProduct)}>
+                    <Text style={styles.addToCartText}>Add to Cart</Text>
+                  </TouchableOpacity>
+
+                  {isItemAdded && (
+                    <View style={styles.itemAddedText}>
+                      <Text>Item added to cart!</Text>
+                      <TouchableOpacity
+                        style={styles.goToCartButton}
+                        onPress={() => router.push('/cart')}>
+                        <Text style={styles.goToCartText}>Go to Cart</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  row: {
-    justifyContent: 'space-between',
-  },
   productContainer: {
     flex: 1,
-    alignItems: 'center',
-    padding: 10,
     margin: 10,
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    alignItems: 'center',
+  },
+  imageContainer: {
+    position: 'relative',
   },
   image: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    marginBottom: 10,
+    width: 150,
+    height: 150,
+  },
+  ribbon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    backgroundColor: 'red',
+    padding: 5,
+    borderRadius: 5,
+  },
+  ribbonText: {
+    color: 'white',
+    fontSize: 12,
   },
   title: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginTop: 10,
   },
-  sizeContainer: {
+  ratingContainer: {
     flexDirection: 'row',
-    marginBottom: 10,
+    alignItems: 'center',
+    marginVertical: 5,
   },
-  sizeButton: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 5,
-    marginHorizontal: 5,
+  rating: {
+    marginRight: 5,
   },
-  selectedSizeButton: {
-    backgroundColor: '#ddd',
-  },
-  sizeButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  price: {
-    fontSize: 14,
-    color: 'green',
-    marginBottom: 5,
+  reviewCount: {
+    fontSize: 12,
+    color: 'gray',
   },
   actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 10,
   },
   addToCartButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     borderRadius: 5,
   },
   addToCartText: {
-    color: '#fff',
-    fontSize: 14,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  row: {
+    justifyContent: 'space-around',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    padding: 20,
+    width: '100%',
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  sizeContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 10,
+  },
+  sizeButton: {
+    padding: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+  },
+  selectedSizeButton: {
+    backgroundColor: '#4CAF50',
+  },
+  sizeButtonText: {
+    fontSize: 16,
+    color: '#000',
+  },
+  price: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 10,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginVertical: 10,
   },
   quantityButton: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
-    padding: 5,
+    paddingHorizontal: 10,
   },
   quantityText: {
-    fontSize: 16,
-    marginHorizontal: 10,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginHorizontal: 20,
+  },
+  itemAddedText: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  goToCartButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 5,
+  },
+  goToCartText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

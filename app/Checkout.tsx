@@ -40,10 +40,10 @@ const CheckoutPage = () => {
         const parsedProducts = typeof data.results === 'string' ? JSON.parse(data.results) : data.results;
         if(parsedProducts.length > 0) {
         setItems(parsedProducts);
-        }
-      }
+        
   
       // Now fetch the subtotal from the calculateSubtotal API
+
       const subtotalResponse = await fetch(`${config.CART_URL}/cartCalculations/calculateSubtotal`, {
         method: 'POST',
         headers: {
@@ -82,14 +82,21 @@ const CheckoutPage = () => {
         }
       } else {
         console.error('Invalid subtotalData structure or missing results');
-      }
+    }
   
       setLoading(false);  // Stop loading
-    } catch (error) {
+    } else {
+      setLoading(false)
+      setItems([])
+      setSubtotal(0)
+    } }
+  }catch (error) {
       console.error('Error fetching cart details or subtotal:', error);
       setLoading(false);  // Stop loading on error
       Alert.alert('Error', 'Something went wrong while fetching the data.');
     }
+  
+
   };
   
   
@@ -208,12 +215,13 @@ const CheckoutPage = () => {
           <Text>No items in the cart.</Text>
         ) : (
           items.map(item => (
-            <View style={styles.itemContainer}>
-            <View key={item.id} style={styles.item}>
+            <View style={styles.itemContainer} key={item.id}>
+            <View style={styles.item}>
               <Image
               source={{ uri: item.image_url.replace('dl=0', 'raw=1') }}  // Replace to ensure correct URL format
               style={styles.itemImage}  // Added styling for image
             />
+              <Text>{item.size}</Text>
               <Text style={styles.itemText}>{item.product_name} x {item.quantity}</Text>
               <Text style={styles.itemText}>${(item.price * item.quantity).toFixed(2)}</Text>
               </View>

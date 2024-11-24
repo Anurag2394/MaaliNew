@@ -123,7 +123,7 @@ const CategoryScreen: React.FC = () => {
               ) : (
                 // If subCategories[category.title] exists and is an array, render the subcategories
                 (subCategories[category.title] || []).length > 0 ? (
-                  (((subCategories[category.title])[0]).children || []).map((item, idx) => {
+                  (JSON.parse(((subCategories[category.title])[0]).children)|| []).map((item, idx) => {
                     console.log(`Rendering subcategory: ${item}`); // Log each subcategory being rendered
                     return (
                       <List.Item
