@@ -57,9 +57,10 @@ export default function RootLayout() {
         <HeaderComponent />
         <SearchComponent />
         <Stack>
-          <Stack.Screen name="Maali" options={{ headerShown: false }} />
-          <Stack.Screen name="product" options={{ title: 'Products' }} />
-          <Stack.Screen name="+not-found" />
+          <Stack.Screen name="Maali" />
+          <Stack.Screen name="product" />
+          <Stack.Screen name='checkout' />
+          <Stack.Screen name="+not-found"/>
         </Stack>
       </ThemeProvider>
     </PaperProvider>

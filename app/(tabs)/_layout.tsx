@@ -10,8 +10,7 @@ export default function TabLayout() {
         tabBarIcon: ({ color }) => (
           <Ionicons name='home-outline' size={22} color={color} />
         )
-      }} />
-      
+      }} />  
       <Tabs.Screen name='categories' options={{
         title: 'Categories',
         tabBarIcon: ({ color }) => (
@@ -22,13 +21,6 @@ export default function TabLayout() {
         title: 'Notification',
         tabBarIcon: ({ color }) => (
           <Ionicons name='notifications-outline' size={22} color={color} />
-        )
-      }} />
-      <Tabs.Screen name='cart' options={{
-        title: 'Cart',
-        tabBarBadge: 3,
-        tabBarIcon: ({ color }) => (
-          <Ionicons name='cart-outline' size={22} color={color} />
         )
       }} />
       <Tabs.Screen name='profile' options={{

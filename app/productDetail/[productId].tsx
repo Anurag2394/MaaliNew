@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import config from '@/config';
 
@@ -16,53 +16,146 @@ type Product = {
   ratings: { averageRating: number; numberOfReviews: number };
   tags: string[];
   dateAdded: string;
-  careInstructions: { watering: string; light: string; fertilizing: string };
+  product: object;
 };
 
 const ProductDetail = () => {
   const { productId } = useLocalSearchParams();
   const router = useRouter();
-  
+
+  const validProductId = productId || 'PLT-SUC-SNKP';
+
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState<'Regular' | 'Large' | 'XL'>('Regular');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [isItemAdded, setIsItemAdded] = useState(false);
 
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
-        const response = await fetch(`${config.BASE_URL}/productCatalog/getProductById/${productId}`);
-        const data = await response.json();
-        setProduct(data);
+        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}`;
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const dataJS = await response.json();
+        console.log('API Response:', dataJS);
+
+        if (dataJS.results && typeof dataJS.results === 'string') {
+          const parsedResults = JSON.parse(dataJS.results);
+
+          if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+            const productData = parsedResults[0];
+
+            if (productData.images && typeof productData.images === 'string') {
+              try {
+                productData.images = JSON.parse(productData.images);
+              } catch (err) {
+                console.error('Error parsing images array:', err);
+                throw new Error('Invalid images format');
+              }
+            }
+
+            if (Array.isArray(productData.images) && productData.images.length > 0) {
+              setProduct(productData);
+            } else {
+              throw new Error('Product images are missing or empty');
+            }
+          } else {
+            throw new Error('No valid product data found');
+          }
+        } else {
+          throw new Error('Invalid response format');
+        }
       } catch (error) {
         console.error('Failed to fetch product details:', error);
+        Alert.alert('Error', 'Failed to load product details.');
       }
     };
 
-    if (productId) {
+    if (validProductId) {
       fetchProductDetail();
     }
-  }, [productId]);
+  }, [validProductId]);
 
-  const handleAddToCart = (product: Product) => {
-    // Logic to add product to cart (same as your current cart modification)
-  };
+  const handleAddToCart = useCallback(() => {
+    if (product) {
+      const availableStock = product.stockQuantity[selectedSize];
+      if (quantity > availableStock) {
+        Alert.alert('Out of Stock', `Only ${availableStock} items available in ${selectedSize} size.`);
+        return;
+      }
+
+      console.log('Added to cart:', { ...product, selectedSize, quantity });
+      setIsItemAdded(true);
+    }
+  }, [product, selectedSize, quantity]);
+
+  const incrementQuantity = useCallback(() => {
+    if (product) {
+      if (quantity < product.stockQuantity[selectedSize]) {
+        setQuantity((prev) => prev + 1);
+      }
+    }
+  }, [product, selectedSize, quantity]);
+
+  const decrementQuantity = useCallback(() => {
+    if (quantity > 1) {
+      setQuantity((prev) => prev - 1);
+    }
+  }, [quantity]);
 
   if (!product) return <Text>Loading...</Text>;
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={{ uri: product.images[0].replace('dl=0', 'raw=1') }}
-        style={styles.image}
-        resizeMode="contain"
-      />
+    <ScrollView style={styles.container}>
+      {/* Image Slider */}
+      {product.images && product.images.length > 0 ? (
+        <View style={styles.imageSlider}>
+          <Image
+            source={{ uri: product.images[selectedImageIndex].replace('dl=0', 'raw=1') }}
+            style={styles.mainImage}
+            resizeMode="contain"
+          />
+          <FlatList
+            horizontal
+            data={product.images}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                onPress={() => setSelectedImageIndex(index)}
+                style={[styles.thumbnailContainer, index === selectedImageIndex && styles.selectedThumbnail]}
+              >
+                <Image
+                  source={{ uri: item.replace('dl=0', 'raw=1') }}
+                  style={styles.thumbnail}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            )}
+            keyExtractor={(item, index) => String(index)}
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
+      ) : (
+        <Text>No images available</Text>
+      )}
 
+      {/* Product Details */}
       <Text style={styles.productName}>{product.productName}</Text>
       <Text style={styles.productDescription}>{product.description}</Text>
+      <Text style={styles.price}>{`${product.currency} ${product.price[selectedSize]}`}</Text>
 
-      <Text style={styles.price}>
-        {`${product.currency} ${product.price[selectedSize]}`}
-      </Text>
+      {/* Care Instructions */}
+      <Text style={styles.instructionsTitle}>Care Instructions:</Text>
+      <Text style={styles.careInstructions}>Watering: {product.watering}</Text>
+      <Text style={styles.careInstructions}>Light: {product.light}</Text>
+      <Text style={styles.careInstructions}>Fertilizing: {product.fertilizing}</Text>
 
+      {/* Size Selector */}
       <View style={styles.sizeContainer}>
         {['Regular', 'Large', 'XL'].map((size) => (
           <TouchableOpacity
@@ -75,14 +168,39 @@ const ProductDetail = () => {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(product)}>
+      {/* Quantity Selector */}
+      <View style={styles.quantityContainer}>
+        <TouchableOpacity style={styles.quantityButton} onPress={decrementQuantity}>
+          <Text style={styles.quantityButtonText}>-</Text>
+        </TouchableOpacity>
+        <Text style={styles.quantityText}>{quantity}</Text>
+        <TouchableOpacity style={styles.quantityButton} onPress={incrementQuantity}>
+          <Text style={styles.quantityButtonText}>+</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Add to Cart Button */}
+      <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
         <Text style={styles.addToCartText}>Add to Cart</Text>
       </TouchableOpacity>
 
+      {isItemAdded && (
+        <View style={styles.itemAddedText}>
+          <Text>Item added to cart!</Text>
+          <TouchableOpacity
+            style={styles.goToCartButton}
+            onPress={() => router.push('/Checkout')}
+          >
+            <Text style={styles.goToCartText}>Go to Cart</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Go Back Button */}
       <TouchableOpacity style={styles.goBackButton} onPress={() => router.back()}>
         <Text style={styles.goBackText}>Go Back</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 };
 
@@ -92,10 +210,27 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#fff',
   },
-  image: {
+  imageSlider: {
+    marginBottom: 20,
+  },
+  mainImage: {
     width: '100%',
     height: 300,
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  thumbnailContainer: {
+    marginHorizontal: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    padding: 5,
+  },
+  selectedThumbnail: {
+    borderColor: '#007BFF',
+  },
+  thumbnail: {
+    width: 60,
+    height: 60,
   },
   productName: {
     fontSize: 24,
@@ -111,7 +246,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 15,
+    marginBottom: 20,
+  },
+  instructionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  careInstructions: {
+    fontSize: 16,
+    marginBottom: 5,
   },
   sizeContainer: {
     flexDirection: 'row',
@@ -119,41 +263,72 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sizeButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
     borderRadius: 5,
   },
   selectedSizeButton: {
-    backgroundColor: '#007BFF',
+    borderColor: '#007BFF',
   },
   sizeButtonText: {
-    color: '#333',
+    fontSize: 16,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  quantityButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  quantityButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  quantityText: {
+    fontSize: 18,
+    marginHorizontal: 10,
   },
   addToCartButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
     backgroundColor: '#007BFF',
-    borderRadius: 6,
-    alignItems: 'center',
+    paddingVertical: 15,
+    borderRadius: 5,
     marginBottom: 20,
   },
   addToCartText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  itemAddedText: {
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  goToCartButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 10,
+    borderRadius: 5,
+  },
+  goToCartText: {
+    color: '#fff',
     fontSize: 16,
+    textAlign: 'center',
   },
   goBackButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 6,
-    alignItems: 'center',
+    backgroundColor: '#ccc',
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginTop: 20,
   },
   goBackText: {
-    color: '#007BFF',
-    fontWeight: 'bold',
+    color: '#000',
     fontSize: 16,
+    textAlign: 'center',
   },
 });
 

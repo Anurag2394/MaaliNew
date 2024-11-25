@@ -118,15 +118,22 @@ const ProductList = () => {
         useNativeDriver: true,
       }).start();
     };
+   
+    const navigateToProductDetail = () => {
+      router.push(`/productDetail/${item.productId}`);
+    };
+
 
     return (
       <View style={styles.productContainer}>
-        <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: item.images[0].replace('dl=0', 'raw=1') }}
-            style={styles.image}
-            resizeMode="stretch"
-          />
+        <View style={styles.imageContainer} >
+        <TouchableOpacity onPress={navigateToProductDetail}>
+            <Image
+              source={{ uri: (JSON.parse(item.images)[0]).toString().replace('dl=0', 'raw=1') }}
+              style={styles.image}
+              resizeMode="stretch"
+            />
+          </TouchableOpacity>
           {isInCart && (
             <View style={styles.ribbon}>
               <Text style={styles.ribbonText}>Added to Cart</Text>
