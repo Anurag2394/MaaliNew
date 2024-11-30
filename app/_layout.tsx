@@ -6,7 +6,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import HeaderComponent from '@/components/HeaderComponent';
-import SearchComponent from '@/components/SearchComponent';
 import Login from '@/components/login';
 import { getUserSession } from '@/utiles/auth'; // Assuming you have a function to check login status
 
@@ -55,12 +54,23 @@ export default function RootLayout() {
     <PaperProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <HeaderComponent />
-        <SearchComponent />
         <Stack>
-          <Stack.Screen name="Maali" />
-          <Stack.Screen name="product" />
-          <Stack.Screen name='checkout' />
-          <Stack.Screen name="+not-found"/>
+          <Stack.Screen 
+            name="Maali"
+            options={{ title: 'Home' }}  // Custom title for the Home screen
+          />
+          <Stack.Screen 
+            name="product"
+            options={{ title: 'Product Details' }}  // Custom title for the product screen
+          />
+          <Stack.Screen 
+            name="checkout" 
+            options={{ title: 'Checkout' }}  // Custom title for the checkout screen
+          />
+          <Stack.Screen 
+            name="+not-found"
+            options={{ headerShown: false }}  // Hide the header for this screen
+          />
         </Stack>
       </ThemeProvider>
     </PaperProvider>

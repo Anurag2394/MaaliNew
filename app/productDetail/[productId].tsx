@@ -45,31 +45,27 @@ const ProductDetail = () => {
         const dataJS = await response.json();
         console.log('API Response:', dataJS);
 
-        if (dataJS.results && typeof dataJS.results === 'string') {
-          const parsedResults = JSON.parse(dataJS.results);
+        const parsedResults = dataJS.results;
 
-          if (Array.isArray(parsedResults) && parsedResults.length > 0) {
-            const productData = parsedResults[0];
+        if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+          const productData = parsedResults[0];
 
-            if (productData.images && typeof productData.images === 'string') {
-              try {
-                productData.images = JSON.parse(productData.images);
-              } catch (err) {
-                console.error('Error parsing images array:', err);
-                throw new Error('Invalid images format');
-              }
+          if (productData.images && typeof productData.images === 'string') {
+            try {
+              productData.images = JSON.parse(productData.images);
+            } catch (err) {
+              console.error('Error parsing images array:', err);
+              throw new Error('Invalid images format');
             }
+          }
 
-            if (Array.isArray(productData.images) && productData.images.length > 0) {
-              setProduct(productData);
-            } else {
-              throw new Error('Product images are missing or empty');
-            }
+          if (Array.isArray(productData.images) && productData.images.length > 0) {
+            setProduct(productData);
           } else {
-            throw new Error('No valid product data found');
+            throw new Error('Product images are missing or empty');
           }
         } else {
-          throw new Error('Invalid response format');
+          throw new Error('No valid product data found');
         }
       } catch (error) {
         console.error('Failed to fetch product details:', error);
@@ -114,46 +110,53 @@ const ProductDetail = () => {
   return (
     <ScrollView style={styles.container}>
       {/* Image Slider */}
-      {product.images && product.images.length > 0 ? (
-        <View style={styles.imageSlider}>
-          <Image
-            source={{ uri: product.images[selectedImageIndex].replace('dl=0', 'raw=1') }}
-            style={styles.mainImage}
-            resizeMode="contain"
-          />
-          <FlatList
-            horizontal
-            data={product.images}
-            renderItem={({ item, index }) => (
-              <TouchableOpacity
-                onPress={() => setSelectedImageIndex(index)}
-                style={[styles.thumbnailContainer, index === selectedImageIndex && styles.selectedThumbnail]}
-              >
-                <Image
-                  source={{ uri: item.replace('dl=0', 'raw=1') }}
-                  style={styles.thumbnail}
-                  resizeMode="contain"
-                />
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item, index) => String(index)}
-            showsHorizontalScrollIndicator={false}
-          />
-        </View>
-      ) : (
-        <Text>No images available</Text>
-      )}
+      <View style={styles.imageSlider}>
+        {product.images && product.images.length > 0 ? (
+          <>
+            <Image
+              source={{ uri: product.images[selectedImageIndex].replace('dl=0', 'raw=1') }}
+              style={styles.mainImage}
+              resizeMode="contain"
+            />
+            <FlatList
+              horizontal
+              data={product.images}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  onPress={() => setSelectedImageIndex(index)}
+                  style={[styles.thumbnailContainer, index === selectedImageIndex && styles.selectedThumbnail]}>
+                  <Image
+                    source={{ uri: item.replace('dl=0', 'raw=1') }}
+                    style={styles.thumbnail}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item, index) => String(index)}
+              showsHorizontalScrollIndicator={false}
+            />
+          </>
+        ) : (
+          <Text>No images available</Text>
+        )}
+      </View>
 
       {/* Product Details */}
       <Text style={styles.productName}>{product.productName}</Text>
       <Text style={styles.productDescription}>{product.description}</Text>
-      <Text style={styles.price}>{`${product.currency} ${product.price[selectedSize]}`}</Text>
+      <Text style={styles.price}>
+  {typeof product.price[selectedSize] === 'number' 
+    ? `${product.currency} ${product.price[selectedSize].toFixed(2)}`
+    : `${product.currency} Price unavailable`}
+</Text>
+s
 
-      {/* Care Instructions */}
-      <Text style={styles.instructionsTitle}>Care Instructions:</Text>
-      <Text style={styles.careInstructions}>Watering: {product.watering}</Text>
-      <Text style={styles.careInstructions}>Light: {product.light}</Text>
-      <Text style={styles.careInstructions}>Fertilizing: {product.fertilizing}</Text>
+      {/* Ratings and Reviews */}
+      <View style={styles.ratingsContainer}>
+        <Text style={styles.ratingsText}>
+          {product.ratings.averageRating} ({product.ratings.numberOfReviews} reviews)
+        </Text>
+      </View>
 
       {/* Size Selector */}
       <View style={styles.sizeContainer}>
@@ -161,8 +164,7 @@ const ProductDetail = () => {
           <TouchableOpacity
             key={size}
             style={[styles.sizeButton, selectedSize === size && styles.selectedSizeButton]}
-            onPress={() => setSelectedSize(size as 'Regular' | 'Large' | 'XL')}
-          >
+            onPress={() => setSelectedSize(size as 'Regular' | 'Large' | 'XL')}>
             <Text style={styles.sizeButtonText}>{size}</Text>
           </TouchableOpacity>
         ))}
@@ -186,11 +188,10 @@ const ProductDetail = () => {
 
       {isItemAdded && (
         <View style={styles.itemAddedText}>
-          <Text>Item added to cart!</Text>
+          <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
           <TouchableOpacity
             style={styles.goToCartButton}
-            onPress={() => router.push('/Checkout')}
-          >
+            onPress={() => router.push('/Checkout')}>
             <Text style={styles.goToCartText}>Go to Cart</Text>
           </TouchableOpacity>
         </View>
@@ -217,6 +218,9 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 300,
     marginBottom: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
   thumbnailContainer: {
     marginHorizontal: 5,
@@ -231,31 +235,32 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: 60,
     height: 60,
+    borderRadius: 5,
   },
   productName: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
+    color: '#333',
   },
   productDescription: {
     fontSize: 16,
     color: '#555',
     marginBottom: 15,
+    lineHeight: 24,
   },
   price: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#000',
-    marginBottom: 20,
+    marginBottom: 15,
   },
-  instructionsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  ratingsContainer: {
+    marginBottom: 15,
   },
-  careInstructions: {
+  ratingsText: {
     fontSize: 16,
-    marginBottom: 5,
+    color: '#888',
   },
   sizeContainer: {
     flexDirection: 'row',
@@ -263,16 +268,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sizeButton: {
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
+    width: 80,
+    alignItems: 'center',
   },
   selectedSizeButton: {
     borderColor: '#007BFF',
   },
   sizeButtonText: {
     fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
   quantityContainer: {
     flexDirection: 'row',
@@ -289,10 +298,11 @@ const styles = StyleSheet.create({
   quantityButtonText: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: '#333',
   },
   quantityText: {
     fontSize: 18,
-    marginHorizontal: 10,
+    marginHorizontal: 15,
   },
   addToCartButton: {
     backgroundColor: '#007BFF',
@@ -308,6 +318,11 @@ const styles = StyleSheet.create({
   itemAddedText: {
     textAlign: 'center',
     marginBottom: 20,
+  },
+  itemAddedMessage: {
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 10,
   },
   goToCartButton: {
     backgroundColor: '#28a745',

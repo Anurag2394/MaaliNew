@@ -61,48 +61,51 @@ const ProductList = () => {
     fetchProducts();
   }, [queryTags]);
 
-  // Modify cart (add, increment, decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
-    const selectedPrice = product.price[size];
-    const selectedDiscount = 0;
     const currentQuantity = cart[product.productId]?.quantity || 0;
-
     let newQuantity = currentQuantity;
-
+  
     if (action === 'increment') {
       newQuantity += 1;
     } else if (action === 'decrement' && currentQuantity > 0) {
       newQuantity -= 1;
     }
-
+  
+    // Ensure selected size exists and is valid
+    const selectedSize = selectedSizes[product.productId] || 'Regular';
+    const selectedPrice = product.price[selectedSize];
+  
+    // Debugging log to check the payload
     const payload = {
-      phone_number: 7417422095,
-      product_id: product.productId,
+      phone_number: 7417422095,  // Make sure it's a valid number
+      product_id: product.productId,  // Make sure productId is valid
       quantity: newQuantity,
-      price: selectedPrice,
-      discount: selectedDiscount,
     };
-
+  
+    console.log("Payload being sent:", payload);
+  
     try {
-      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
+      const response = await fetch('http://192.168.29.43:8002/cart/updateItemQuantity', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
+  
       const data = await response.json();
       setCart((prevCart) => ({
         ...prevCart,
         [product.productId]: {
           quantity: newQuantity,
-          price: selectedPrice,
-          discount: selectedDiscount,
+          price: selectedPrice,  // If needed for UI
+          discount: 0,  // As per your logic
         },
       }));
     } catch (error) {
       console.error('Error modifying cart:', error);
     }
   }, [cart]);
+  
+  
 
   const renderProduct = ({ item }: { item: Product }) => {
     const isInCart = cart[item.productId]?.quantity > 0;
@@ -165,8 +168,9 @@ const ProductList = () => {
     );
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = async (product: Product) => {
     setIsItemAdded(true);
+  
     // Trigger the fade-out animation for the "Go to Cart" button after 4 seconds
     setTimeout(() => {
       Animated.timing(fadeOutAnimation, {
@@ -175,13 +179,70 @@ const ProductList = () => {
         useNativeDriver: true,
       }).start();
     }, 4000);
-
-    // Add the product to the cart
-    modifyCart(product, selectedSizes[product.productId] || 'Regular', 'increment');
-
-    // Close the modal after adding the item to the cart
-    setIsModalVisible(false);
+  
+    // Get the selected size (default to 'Regular' if not selected)
+    const size = selectedSizes[product.productId] || 'Regular';
+    
+    // Get the price for the selected size
+    const selectedPrice = product.price[size];
+    
+    // Set discount to 0 (You can modify this logic as per your requirements)
+    const selectedDiscount = 0;
+  
+    // Log the values of the payload before making the API request
+    console.log("Payload being sent to API:", {
+      phone_number: 7417422095,  // Make sure to dynamically fetch this
+      product_id: product.productId,
+      quantity: 1,               // You can modify this if you allow quantity to be changed
+      price: selectedPrice,
+      discount: selectedDiscount
+    });
+  
+    // Define the payload for the API request
+    const payload = {
+      phone_number: 7417422095,  // Make sure to fetch this from user session or state
+      product_id: product.productId,
+      quantity: 1,               // You can replace with dynamically selected quantity
+      price: selectedPrice,
+      discount: selectedDiscount,
+    };
+  
+    try {
+      // Make the API call to add the item to the cart
+      const response = await fetch('http://192.168.29.43:8002/cart/addItemToCart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+  
+      // Log the response to check the API result
+      const data = await response.json();
+      console.log("API Response:", data);
+  
+      if (response.ok) {
+        // Successfully added to cart, update the state
+        setCart((prevCart) => ({
+          ...prevCart,
+          [product.productId]: {
+            quantity: 1,  // Set the quantity correctly based on your cart logic
+            price: selectedPrice,
+            discount: selectedDiscount,
+          },
+        }));
+  
+        // Close the modal after adding the item to the cart
+        setIsModalVisible(false);
+      } else {
+        console.error('Error adding item to cart:', data.message || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Error during API call:', error);
+    }
   };
+  
+
 
   const closeModal = () => {
     Animated.timing(modalSlideAnim, {
@@ -270,7 +331,7 @@ const ProductList = () => {
                       <Text>Item added to cart!</Text>
                       <TouchableOpacity
                         style={styles.goToCartButton}
-                        onPress={() => router.push('/cart')}>
+                        onPress={() => router.push('/Checkout')}>
                         <Text style={styles.goToCartText}>Go to Cart</Text>
                       </TouchableOpacity>
                     </View>
