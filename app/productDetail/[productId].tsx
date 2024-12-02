@@ -90,7 +90,7 @@ const ProductDetail = () => {
       setIsItemAdded(true);
     }
   }, [product, selectedSize, quantity]);
-
+        
   const incrementQuantity = useCallback(() => {
     if (product) {
       if (quantity < product.stockQuantity[selectedSize]) {
