@@ -63,7 +63,6 @@ const ProductList = () => {
 
   // Modify Cart Quantity (increment or decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
-    // Fetch the current quantity for the selected product and size from the cart state
     const currentQuantity = cart[product.productId]?.quantity || 1;
     let newQuantity = currentQuantity;
 
@@ -73,11 +72,9 @@ const ProductList = () => {
       newQuantity -= 1;
     }
 
-    // Ensure selected size exists and is valid
     const selectedSize = selectedSizes[product.productId] || 'Regular';
     const selectedPrice = product.price[selectedSize];
 
-    // Update the cart with the new quantity for the specific product and size
     setCart((prevCart) => ({
       ...prevCart,
       [product.productId]: {
@@ -87,23 +84,20 @@ const ProductList = () => {
       },
     }));
 
-    // Optionally update the local `quantity` state to reflect the current quantity for the modal
-    setQuantity(newQuantity); // This will update the `quantity` state that can be displayed in the modal
+    setQuantity(newQuantity);
   }, [cart, selectedSizes]);
 
   // Handle Add to Cart Action
   const handleAddToCart = async (product: Product) => {
-    // Get the selected size (default to 'Regular' if not selected)
     const size = selectedSizes[product.productId] || 'Regular';
-
     const selectedPrice = product.price[size];
     const selectedDiscount = 0; // Set discount if needed
 
-    const currentQuantity = cart[product.productId]?.quantity || 1; // Use the quantity from the cart state
+    const currentQuantity = cart[product.productId]?.quantity || 1;
     const payload = {
       phone_number: 7417422095,  // Make sure to fetch this from user session or state
       product_id: product.productId,
-      quantity: currentQuantity,  // Use the dynamically updated quantity
+      quantity: currentQuantity,
       price: selectedPrice,
       discount: selectedDiscount,
       size: size
@@ -121,17 +115,14 @@ const ProductList = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Successfully added to cart, update the state
         setCart((prevCart) => ({
           ...prevCart,
           [product.productId]: {
-            quantity: currentQuantity,  // Update the quantity correctly based on your cart logic
+            quantity: currentQuantity,
             price: selectedPrice,
             discount: selectedDiscount,
           },
         }));
-
-        // Close the modal after adding the item to the cart
         setIsModalVisible(false);
       } else {
         console.error('Error adding item to cart:', data.message || 'Unknown error');
@@ -145,34 +136,28 @@ const ProductList = () => {
     setCurrentProduct(product);
     setIsModalVisible(true);
 
-    // Reset the slide animation to 0 (bottom) before starting the animation
     modalSlideAnim.setValue(0);
 
-    // Slide up the modal
     Animated.timing(modalSlideAnim, {
-      toValue: 1,  // Move modal up to visible position
+      toValue: 1,
       duration: 300,
-      useNativeDriver: true,  // Ensure smooth animation
+      useNativeDriver: true,
     }).start();
   };
 
   const closeModal = () => {
-    // Slide the modal back down when closing
     Animated.timing(modalSlideAnim, {
-      toValue: 0,  // Move modal down to hide it
+      toValue: 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
 
     setTimeout(() => {
-      setIsModalVisible(false);  // Set visibility to false after animation completes
+      setIsModalVisible(false);
     }, 300);
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    console.log(item,'item!!!!', cart)
-    //const isInCart = cart[item.productId]?.quantity > 0;
-
     const navigateToProductDetail = () => {
       router.push(`/productDetail/${item.productId}/${item.category}`);
     };
@@ -187,11 +172,6 @@ const ProductList = () => {
               resizeMode="stretch"
             />
           </TouchableOpacity>
-          {/* {isInCart && (
-            <View style={styles.ribbon}>
-              <Text style={styles.ribbonText}>Added to Cart</Text>
-            </View>
-          )} */}
         </View>
 
         <Text style={styles.title}>{item.productName}</Text>
@@ -227,8 +207,7 @@ const ProductList = () => {
         columnWrapperStyle={styles.row}
       />
 
-      {/* Conditionally render the modal based on `isModalVisible` */}
-      {isModalVisible && (
+      {isModalVisible && currentProduct && (
         <Modal
           visible={isModalVisible}
           onRequestClose={closeModal}
@@ -236,9 +215,7 @@ const ProductList = () => {
           animationType="fade"
         >
           <TouchableWithoutFeedback onPress={closeModal}>
-            <Animated.View
-              style={[styles.modalContainer, { opacity: fadeOutAnimation }]}
-            >
+            <Animated.View style={[styles.modalContainer, { opacity: fadeOutAnimation }]}>
               <Animated.View
                 style={[
                   styles.modalContent,
@@ -247,55 +224,49 @@ const ProductList = () => {
                       {
                         translateY: modalSlideAnim.interpolate({
                           inputRange: [0, 1],
-                          outputRange: [500, 0], // Slide-up effect
+                          outputRange: [500, 0],
                         }),
                       },
                     ],
                   },
                 ]}
               >
-                {currentProduct && (
-                  <>
-                    <Text style={styles.modalTitle}>{currentProduct.productName}</Text>
+                <Text style={styles.modalTitle}>{currentProduct.productName}</Text>
 
-                    <View style={styles.sizeContainer}>
-                      {['Regular', 'Large', 'XL'].map((size) => (
-                        <TouchableOpacity
-                          key={size}
-                          style={[
-                            styles.sizeButton,
-                            selectedSizes[currentProduct.productId] === size && styles.selectedSizeButton,
-                          ]}
-                          onPress={() => setSelectedSizes((prev) => ({ ...prev, [currentProduct.productId]: size }))}>
-                          <Text style={styles.sizeButtonText}>{size}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-
-                    <Text style={styles.price}>
-                      {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
-                    </Text>
-
-                    <View style={styles.actionsContainer}>
-                      <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}>
-                        <Text>-</Text>
-                      </TouchableOpacity>
-
-                      <Text>{cart[currentProduct.productId]?.quantity || 1}</Text> {/* Display the updated quantity from the cart state */}
-
-                      <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'increment')}>
-                        <Text>+</Text>
-                      </TouchableOpacity>
-                    </View>
-
+                <View style={styles.sizeContainer}>
+                  {Object.keys(currentProduct.price).map((size) => (
                     <TouchableOpacity
-                      style={styles.addToCartButton}
-                      onPress={() => handleAddToCart(currentProduct)}
+                      key={size}
+                      style={[
+                        styles.sizeButton,
+                        selectedSizes[currentProduct.productId] === size && styles.selectedSizeButton,
+                      ]}
+                      onPress={() => setSelectedSizes((prev) => ({ ...prev, [currentProduct.productId]: size }))}
                     >
-                      <Text style={styles.addToCartText}>Add to Cart</Text>
+                      <Text style={styles.sizeButtonText}>{size}</Text>
                     </TouchableOpacity>
-                  </>
-                )}
+                  ))}
+                </View>
+
+                <Text style={styles.price}>
+                  {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
+                </Text>
+
+                <View style={styles.actionsContainer}>
+                  <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}>
+                    <Text>-</Text>
+                  </TouchableOpacity>
+
+                  <Text>{quantity}</Text>
+
+                  <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'increment')}>
+                    <Text>+</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(currentProduct)}>
+                  <Text style={styles.addToCartText}>Add to Cart</Text>
+                </TouchableOpacity>
               </Animated.View>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -304,6 +275,7 @@ const ProductList = () => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   productContainer: {
