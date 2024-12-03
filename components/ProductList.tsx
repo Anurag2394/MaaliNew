@@ -174,7 +174,7 @@ const ProductList = () => {
     //const isInCart = cart[item.productId]?.quantity > 0;
 
     const navigateToProductDetail = () => {
-      router.push(`/productDetail/${item.productId}`);
+      router.push(`/productDetail/${item.productId}/${item.category}`);
     };
 
     return (
