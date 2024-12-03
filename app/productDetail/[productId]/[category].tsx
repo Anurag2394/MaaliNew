@@ -21,6 +21,7 @@ type Product = {
 
 const ProductDetail = () => {
   const { productId } = useLocalSearchParams();
+  const {category}= useLocalSearchParams();
   const router = useRouter();
 
   const validProductId = productId || 'PLT-SUC-SNKP';
@@ -34,7 +35,7 @@ const ProductDetail = () => {
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
-        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}`;
+        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${category}`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {
