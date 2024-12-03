@@ -170,7 +170,7 @@ const ProductList = () => {
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    console.log(item,'item!!!!')
+    console.log(item,'item!!!!', cart)
     //const isInCart = cart[item.productId]?.quantity > 0;
 
     const navigateToProductDetail = () => {

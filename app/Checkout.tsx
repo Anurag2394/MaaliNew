@@ -4,22 +4,19 @@ import config from '@/config';
 
 const CheckoutPage = () => {
   const [items, setItems] = useState([]);
-  const [phoneNumber, setPhoneNumber] = useState(7417422095);  // Assuming you get the phone number from some state or context
+  const [phoneNumber, setPhoneNumber] = useState(7417422095); // Assuming you get the phone number from some state or context
   const [user, setUser] = useState({
     name: '',
     email: '',
     address: '',
   });
-  const [subtotal, setSubtotal] = useState(0);  // To store subtotal fetched from API
+  const [subtotal, setSubtotal] = useState(0); // To store subtotal fetched from API
   const [loading, setLoading] = useState(false);
 
   // Fetch cart details and calculate subtotal on mount
-  
   const fetchCartDetails = async () => {
     try {
-      setLoading(true);  // Start loading
-  
-      // Fetch cart details
+      setLoading(true); // Start loading
       const response = await fetch(`${config.CART_URL}/cart/getCartDetails`, {
         method: 'POST',
         headers: {
@@ -27,158 +24,119 @@ const CheckoutPage = () => {
         },
         body: JSON.stringify({ phone_number: phoneNumber }), // Sending phone_number as body parameter
       });
-  
-      // Check if the response is ok (status 200-299)
+
       if (!response.ok) {
         throw new Error('Failed to fetch cart details');
       }
-  
-      const data = await response.json();
-  
-      if (data.results) {
-        // Check if results is a string and parse it
-        const parsedProducts = typeof data.results === 'string' ? JSON.parse(data.results) : data.results;
-        if(parsedProducts.length > 0) {
-        setItems(parsedProducts);
-        
-  
-      // Now fetch the subtotal from the calculateSubtotal API
 
-      const subtotalResponse = await fetch(`${config.CART_URL}/cartCalculations/calculateSubtotal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ phone_number: phoneNumber }),  // Sending phone_number as body parameter for subtotal
-      });
-  
-      // Check if the response is ok (status 200-299)
-      if (!subtotalResponse.ok) {
-        throw new Error('Failed to fetch subtotal');
-      }
-      const subtotalData = await subtotalResponse.json();
-  
-      // Log subtotalData for debugging
-      console.log('subtotalData:', subtotalData);
-  
-      if (subtotalData && subtotalData.results) {
-        // Handle the string with Decimal values and convert to a proper object
-        let cardTotal = typeof subtotalData.results === 'string' ? subtotalData.results : JSON.stringify(subtotalData.results);
-  
-        // Replace Decimal('value') with just the value as a number (string)
-        cardTotal = cardTotal.replace(/Decimal\(['"]?([0-9\.]+)['"]?\)/g, (match, p1) => p1);
-  
-        // Now parse the modified string as JSON
-        cardTotal = JSON.parse(cardTotal.replace(/'/g, '"')); // Convert single quotes to double quotes for valid JSON
-  
-        console.log('Parsed subtotalData:', cardTotal); // Check the structure of the data
-  
-        if (cardTotal && cardTotal.subtotal) {
-          const total = parseFloat(cardTotal.subtotal);
-          setSubtotal(total);  // Set the subtotal value
-          console.log('Subtotal:', total); // Log the subtotal
+      const data = await response.json();
+
+      if (data.results) {
+        const parsedProducts = typeof data.results === 'string' ? JSON.parse(data.results) : data.results;
+        if (parsedProducts.length > 0) {
+          setItems(parsedProducts);
+
+          const subtotalResponse = await fetch(`${config.CART_URL}/cartCalculations/calculateSubtotal`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ phone_number: phoneNumber }), // Sending phone_number as body parameter for subtotal
+          });
+
+          if (!subtotalResponse.ok) {
+            throw new Error('Failed to fetch subtotal');
+          }
+
+          const subtotalData = await subtotalResponse.json();
+
+          let cardTotal = typeof subtotalData.results === 'string' ? subtotalData.results : JSON.stringify(subtotalData.results);
+          cardTotal = cardTotal.replace(/Decimal\(['"]?([0-9\.]+)['"]?\)/g, (match, p1) => p1);
+          cardTotal = JSON.parse(cardTotal.replace(/'/g, '"'));
+
+          if (cardTotal && cardTotal.subtotal) {
+            const total = parseFloat(cardTotal.subtotal);
+            setSubtotal(total);
+          }
         } else {
-          console.error('Subtotal not found in response');
+          setItems([]); // Clear items if none are fetched
+          setSubtotal(0); // Reset subtotal
         }
-      } else {
-        console.error('Invalid subtotalData structure or missing results');
-    }
-  
-      setLoading(false);  // Stop loading
-    } else {
-      setLoading(false)
-      setItems([])
-      setSubtotal(0)
-    } }
-  }catch (error) {
+      }
+      setLoading(false); // Stop loading
+    } catch (error) {
       console.error('Error fetching cart details or subtotal:', error);
-      setLoading(false);  // Stop loading on error
+      setLoading(false);
       Alert.alert('Error', 'Something went wrong while fetching the data.');
     }
-  
-
   };
-  
-  
-  
-
-
 
   useEffect(() => {
-    // Call the fetchCartDetails function when the component mounts or when phoneNumber changes
     fetchCartDetails();
-  }, [phoneNumber]); 
+  }, [phoneNumber]);
 
-  // Handle checkout
-  const handleCheckout = () => {
-    if (!user.name || !user.email || !user.address) {
-      Alert.alert('Error', 'Please fill out all the fields.');
-      return;
-    }
-    // You would typically send this data to a backend here
-    Alert.alert('Checkout successful!');
+  // Handle quantity update
+  const handleUpdateQuantity = (itemId, operation, size) => {
+    const updatedItems = items.map(item => {
+      if (item.product_id === itemId) {
+        let updatedQuantity = item.quantity;
+
+        if (operation === 'increment') {
+          updatedQuantity += 1;
+        } else if (operation === 'decrement' && updatedQuantity > 1) {
+          updatedQuantity -= 1;
+        } else if (operation === 'decrement' && updatedQuantity === 1) {
+          handleRemoveItem(itemId, size);
+          return null; // Remove item from list if quantity reaches 0
+        }
+
+        // Update the quantity locally
+        return { ...item, quantity: updatedQuantity };
+      }
+      return item;
+    }).filter(item => item !== null); // Filter out any null items (those removed from the cart)
+
+    setItems(updatedItems);
+
+    // Call updateCartQuantity with the updated size
+    updateCartQuantity(itemId, updatedItems.find(item => item.product_id === itemId).quantity, size);
   };
 
-  // Clear cart functionality
- const handleClearCart = () => {
-  fetch(`${config.CART_URL}/cart/clearCart`, {
-    method: 'POST',  // Assuming this is a POST request to clear the cart
-    headers: {
-      'Content-Type': 'application/json', // Set the content type as JSON
-    },
-    body: JSON.stringify({ phone_number: phoneNumber, soft_delete: 1 }),
-  })
-    .then(response => {
-      const contentType = response.headers.get('Content-Type');
-      if (contentType && contentType.includes('application/json')) {
-        // If the response is JSON, parse it as JSON
-        return response.json();
-      } else {
-        // Otherwise, parse it as plain text
-        return response.text();
-      }
+  // Update the quantity in the backend
+  const updateCartQuantity = (itemId, newQuantity, size) => {
+    fetch(`${config.CART_URL}/cart/updateItemQuantity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: itemId,
+        phone_number: phoneNumber,
+        quantity: newQuantity,
+        size: size, // Include size in the request body
+      }),
     })
-    .then(data => {
-      if (typeof data === 'string') {
-        // Handle plain text response (e.g., "success", "Item removed", etc.)
-        if (data === "success" || data === "Item removed from the cart successfully.") {
-          setItems([]); // Clear the cart items from the state
-          setSubtotal(0); // Reset subtotal as cart is cleared
-          Alert.alert('Success', 'Your cart has been cleared.');
-        } else {
-          Alert.alert('Error', 'There was an issue clearing your cart.');
+      .then(response => response.json())
+      .then(data => {
+        if (data.status !== 200) {
+          Alert.alert('Error', 'Failed to update item quantity.');
         }
-      } else if (data && data.status === 200) {
-        // If the response is JSON and status is 200, proceed with clearing the cart
-        setItems([]); // Clear the cart items from the state
-        setSubtotal(0); // Reset subtotal as cart is cleared
-        Alert.alert('Success', 'Your cart has been cleared.');
-      } else {
-        // Handle unexpected responses
-        Alert.alert('Error', 'There was an issue clearing your cart.');
-      }
-    })
-    .catch(error => {
-      console.error('Error clearing cart:', error);
-      Alert.alert('Error', 'Failed to clear the cart.');
-    });
-};
+      })
+      .catch(error => {
+        console.error('Error updating quantity:', error);
+        Alert.alert('Error', 'Failed to update item quantity.');
+      });
+  };
 
-
-  // Handle remove item from cart
-  const handleRemoveItem = (itemId) => {
+  // Handle item removal
+  const handleRemoveItem = (itemId, size) => {
     fetch(`${config.CART_URL}/cart/removeItemFromCart`, {
       method: 'POST',
-      headers: {    
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, soft_delete: 1 }), // Sending the item ID to remove
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, size:size, soft_delete: 1 }),
     })
+      .then(response => response.json())
       .then(data => {
-        if (data.status == 200 ) {
-          // Item was successfully removed, so let's re-fetch the cart details
+        if (data.status === 200) {
           fetchCartDetails(); // Re-fetch cart details after removing the item
-          
           Alert.alert('Success', 'Item removed from cart.');
         } else {
           Alert.alert('Error', 'There was an issue removing the item.');
@@ -189,12 +147,6 @@ const CheckoutPage = () => {
         Alert.alert('Error', 'Failed to remove the item.');
       });
   };
-  
-
-  // Log the items after they are updated
-  useEffect(() => {
-    console.log('Updated Items:', items);
-  }, [items]);  // This hook runs whenever `items` is updated
 
   if (loading) {
     return (
@@ -216,21 +168,25 @@ const CheckoutPage = () => {
         ) : (
           items.map(item => (
             <View style={styles.itemContainer} key={item.id}>
-            <View style={styles.item}>
-              <Image
-              source={{ uri: item.image_url.replace('dl=0', 'raw=1') }}  // Replace to ensure correct URL format
-              style={styles.itemImage}  // Added styling for image
-            />
-              <Text>{item.size}</Text>
-              <Text style={styles.itemText}>{item.product_name} x {item.quantity}</Text>
-              <Text style={styles.itemText}>${(item.price * item.quantity).toFixed(2)}</Text>
+              <View style={styles.item}>
+                <Image
+                  source={{ uri: item.image_url.replace('dl=0', 'raw=1') }}
+                  style={styles.itemImage}
+                />
+                <Text>{item.size}</Text>
+                <Text style={styles.itemText}>{item.product_name} x {item.quantity}</Text>
+                <Text style={styles.itemText}>${(item.price * item.quantity).toFixed(2)}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => handleRemoveItem(item.product_id)}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </TouchableOpacity>
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
+                  <Text style={styles.quantityButton}>-</Text>
+                </TouchableOpacity>
+                <Text style={styles.quantityText}>{item.quantity}</Text>
+                <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
+                  <Text style={styles.quantityButton}>+</Text>
+                </TouchableOpacity>
+              </View>
+              
             </View>
           ))
         )}
@@ -263,16 +219,6 @@ const CheckoutPage = () => {
       <View style={styles.total}>
         <Text style={styles.totalText}>Total: ${subtotal.toFixed(2)}</Text>
       </View>
-
-      {/* Checkout Button */}
-      <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
-        <Text style={styles.checkoutButtonText}>Proceed to Checkout</Text>
-      </TouchableOpacity>
-
-      {/* Clear Cart Button */}
-      {items.length > 0 &&<TouchableOpacity style={styles.clearCartButton} onPress={handleClearCart}>
-        <Text style={styles.clearCartButtonText}>Clear Cart</Text>
-      </TouchableOpacity>}
     </ScrollView>
   );
 };
@@ -280,7 +226,79 @@ const CheckoutPage = () => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 20,
+    padding: 15,
+    backgroundColor: '#fff',
+  },
+  header: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  itemContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  itemImage: {
+    width: 60,
+    height: 60,
+    marginRight: 10,
+  },
+  itemText: {
+    fontSize: 16,
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quantityButton: {
+    fontSize: 18,
+    marginHorizontal: 10,
+    padding: 5,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+  },
+  quantityText: {
+    fontSize: 16,
+  },
+  removeButton: {
+    marginTop: 10,
+    backgroundColor: 'red',
+    padding: 10,
+    borderRadius: 5,
+  },
+  removeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+  },
+  total: {
+    marginTop: 20,
+    alignItems: 'flex-end',
+  },
+  totalText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingLeft: 10,
+    fontSize: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -289,97 +307,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#555',
-  },
-  itemContainer: {
-    display: 'flex',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  item: {
-    display: 'flex',
-    flexDirection: 'row',
-    marginBottom: 15,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  itemImage: {
-    width: 50,    // Adjust width as needed
-    height: 50,   // Adjust height as needed
-    borderRadius: 5, // Optional: for rounded corners
-    marginRight: 10, // Optional: add space between image and text
-  },
-  itemText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  input: {
-    height: 45,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    backgroundColor: '#f9f9f9',
-  },
-  total: {
-    marginBottom: 25,
-    alignItems: 'flex-end',
-  },
-  totalText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  checkoutButton: {
-    backgroundColor: '#28a745',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  checkoutButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  clearCartButton: {
-    backgroundColor: '#dc3545',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  clearCartButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  removeButton: {
-    backgroundColor: '#f44336',
-    padding: 5,
-    height: 28,
-    borderRadius: 5,
-  },
-  removeButtonText: {
-    color: '#fff',
-    fontSize: 12,
   },
 });
 
