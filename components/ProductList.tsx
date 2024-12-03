@@ -24,6 +24,7 @@ const ProductList = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedSizes, setSelectedSizes] = useState<{ [key: string]: string }>({});
   const [cart, setCart] = useState<{ [key: string]: { quantity: number; price: number; discount: number } }>({});
+  const [quantity, setQuantity] = useState(1);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [modalSlideAnim] = useState(new Animated.Value(0)); // For modal sliding animation
@@ -60,13 +61,15 @@ const ProductList = () => {
     fetchProducts();
   }, [queryTags]);
 
+  // Modify Cart Quantity (increment or decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
-    const currentQuantity = cart[product.productId]?.quantity || 0;
+    // Fetch the current quantity for the selected product and size from the cart state
+    const currentQuantity = cart[product.productId]?.quantity || 1;
     let newQuantity = currentQuantity;
 
     if (action === 'increment') {
       newQuantity += 1;
-    } else if (action === 'decrement' && currentQuantity > 0) {
+    } else if (action === 'decrement' && currentQuantity > 1) {
       newQuantity -= 1;
     }
 
@@ -74,51 +77,101 @@ const ProductList = () => {
     const selectedSize = selectedSizes[product.productId] || 'Regular';
     const selectedPrice = product.price[selectedSize];
 
-    try {
-      const payload = {
-        phone_number: 7417422095,  // Make sure it's a valid number
-        product_id: product.productId,  // Make sure productId is valid
+    // Update the cart with the new quantity for the specific product and size
+    setCart((prevCart) => ({
+      ...prevCart,
+      [product.productId]: {
         quantity: newQuantity,
-        size: selectedSize
-      };
+        price: selectedPrice,
+        discount: 0,  // Set discount if needed
+      },
+    }));
 
-      const response = await fetch('http://192.168.29.14:8002/cart/updateItemQuantity', {
+    // Optionally update the local `quantity` state to reflect the current quantity for the modal
+    setQuantity(newQuantity); // This will update the `quantity` state that can be displayed in the modal
+  }, [cart, selectedSizes]);
+
+  // Handle Add to Cart Action
+  const handleAddToCart = async (product: Product) => {
+    // Get the selected size (default to 'Regular' if not selected)
+    const size = selectedSizes[product.productId] || 'Regular';
+
+    const selectedPrice = product.price[size];
+    const selectedDiscount = 0; // Set discount if needed
+
+    const currentQuantity = cart[product.productId]?.quantity || 1; // Use the quantity from the cart state
+    const payload = {
+      phone_number: 7417422095,  // Make sure to fetch this from user session or state
+      product_id: product.productId,
+      quantity: currentQuantity,  // Use the dynamically updated quantity
+      price: selectedPrice,
+      discount: selectedDiscount,
+      size: size
+    };
+
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/addItemToCart', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
-      setCart((prevCart) => ({
-        ...prevCart,
-        [product.productId]: {
-          quantity: newQuantity,
-          price: selectedPrice,  // If needed for UI
-          discount: 0,  // As per your logic
-        },
-      }));
+
+      if (response.ok) {
+        // Successfully added to cart, update the state
+        setCart((prevCart) => ({
+          ...prevCart,
+          [product.productId]: {
+            quantity: currentQuantity,  // Update the quantity correctly based on your cart logic
+            price: selectedPrice,
+            discount: selectedDiscount,
+          },
+        }));
+
+        // Close the modal after adding the item to the cart
+        setIsModalVisible(false);
+      } else {
+        console.error('Error adding item to cart:', data.message || 'Unknown error');
+      }
     } catch (error) {
-      console.error('Error modifying cart:', error);
+      console.error('Error during API call:', error);
     }
-  }, [cart]);
+  };
+
+  const openModal = (product: Product) => {
+    setCurrentProduct(product);
+    setIsModalVisible(true);
+
+    // Reset the slide animation to 0 (bottom) before starting the animation
+    modalSlideAnim.setValue(0);
+
+    // Slide up the modal
+    Animated.timing(modalSlideAnim, {
+      toValue: 1,  // Move modal up to visible position
+      duration: 300,
+      useNativeDriver: true,  // Ensure smooth animation
+    }).start();
+  };
+
+  const closeModal = () => {
+    // Slide the modal back down when closing
+    Animated.timing(modalSlideAnim, {
+      toValue: 0,  // Move modal down to hide it
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+
+    setTimeout(() => {
+      setIsModalVisible(false);  // Set visibility to false after animation completes
+    }, 300);
+  };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    const isInCart = cart[item.productId]?.quantity > 0;
-
-    const openModal = (product: Product) => {
-      setCurrentProduct(product);
-      setIsModalVisible(true);
-
-      // Reset the slide animation to 0 (bottom) before starting the animation
-      modalSlideAnim.setValue(0);
-
-      // Slide up the modal
-      Animated.timing(modalSlideAnim, {
-        toValue: 1,  // Move modal up to visible position
-        duration: 300,
-        useNativeDriver: true,  // Ensure smooth animation
-      }).start();
-    };
+    console.log(item,'item!!!!')
+    //const isInCart = cart[item.productId]?.quantity > 0;
 
     const navigateToProductDetail = () => {
       router.push(`/productDetail/${item.productId}`);
@@ -134,11 +187,11 @@ const ProductList = () => {
               resizeMode="stretch"
             />
           </TouchableOpacity>
-          {isInCart && (
+          {/* {isInCart && (
             <View style={styles.ribbon}>
               <Text style={styles.ribbonText}>Added to Cart</Text>
             </View>
-          )}
+          )} */}
         </View>
 
         <Text style={styles.title}>{item.productName}</Text>
@@ -164,68 +217,6 @@ const ProductList = () => {
     );
   };
 
-  const handleAddToCart = async (product: Product) => {
-    // Get the selected size (default to 'Regular' if not selected)
-    const size = selectedSizes[product.productId] || 'Regular';
-
-    const selectedPrice = product.price[size];
-    const selectedDiscount = 0;
-
-    const payload = {
-      phone_number: 7417422095,  // Make sure to fetch this from user session or state
-      product_id: product.productId,
-      quantity: 1,               // You can replace with dynamically selected quantity
-      price: selectedPrice,
-      discount: selectedDiscount,
-      size: size
-    };
-
-    try {
-      const response = await fetch('http://192.168.29.14:8002/cart/addItemToCart', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      console.log("API Response:", data);
-
-      if (response.ok) {
-        // Successfully added to cart, update the state
-        setCart((prevCart) => ({
-          ...prevCart,
-          [product.productId]: {
-            quantity: 1,  // Set the quantity correctly based on your cart logic
-            price: selectedPrice,
-            discount: selectedDiscount,
-          },
-        }));
-
-        // Close the modal after adding the item to the cart
-        setIsModalVisible(false);
-      } else {
-        console.error('Error adding item to cart:', data.message || 'Unknown error');
-      }
-    } catch (error) {
-      console.error('Error during API call:', error);
-    }
-  };
-
-  const closeModal = () => {
-    // Slide the modal back down when closing
-    Animated.timing(modalSlideAnim, {
-      toValue: 0,  // Move modal down to hide it
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-
-    setTimeout(() => {
-      setIsModalVisible(false);  // Set visibility to false after animation completes
-    }, 300);
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <FlatList
@@ -246,7 +237,8 @@ const ProductList = () => {
         >
           <TouchableWithoutFeedback onPress={closeModal}>
             <Animated.View
-              style={[styles.modalContainer, { opacity: fadeOutAnimation }]}>
+              style={[styles.modalContainer, { opacity: fadeOutAnimation }]}
+            >
               <Animated.View
                 style={[
                   styles.modalContent,
@@ -289,7 +281,7 @@ const ProductList = () => {
                         <Text>-</Text>
                       </TouchableOpacity>
 
-                      <Text>{cart[currentProduct.productId]?.quantity || 0}</Text>
+                      <Text>{cart[currentProduct.productId]?.quantity || 1}</Text> {/* Display the updated quantity from the cart state */}
 
                       <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'increment')}>
                         <Text>+</Text>
@@ -314,64 +306,60 @@ const ProductList = () => {
 };
 
 const styles = StyleSheet.create({
-  row: {
-    flex: 1,
-    justifyContent: 'space-evenly',
-  },
   productContainer: {
-    width: '45%',
-    marginVertical: 10,
+    flex: 1,
+    margin: 10,
+    alignItems: 'center',
   },
   imageContainer: {
     position: 'relative',
   },
   image: {
-    width: '100%',
+    width: 150,
     height: 150,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   ribbon: {
     position: 'absolute',
-    top: 10,
-    left: 10,
-    backgroundColor: '#ff6f61',
+    top: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     padding: 5,
-    borderRadius: 8,
+    borderRadius: 5,
   },
   ribbonText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: 'bold',
   },
   title: {
-    marginTop: 10,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
-    textAlign: 'center',
+    marginTop: 10,
   },
   ratingContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginVertical: 5,
+    alignItems: 'center',
+  },
+  rating: {
+    marginRight: 5,
   },
   reviewCount: {
     fontSize: 12,
     color: '#888',
   },
   actionsContainer: {
+    marginTop: 10,
+    display: 'flex',
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between'
   },
   addToCartButton: {
-    backgroundColor: '#ff6f61',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 10,
+    backgroundColor: '#28a745',
+    padding: 10,
+    borderRadius: 5,
   },
   addToCartText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
   },
   modalContainer: {
@@ -385,34 +373,32 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     width: '80%',
-    maxWidth: 400,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   sizeContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 15,
   },
   sizeButton: {
     padding: 10,
-    backgroundColor: '#f1f1f1',
+    borderWidth: 1,
+    marginRight: 10,
     borderRadius: 5,
   },
   selectedSizeButton: {
-    backgroundColor: '#ff6f61',
+    backgroundColor: '#28a745',
+    color: '#fff'
   },
   sizeButtonText: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 16,
   },
   price: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
   },
 });
 

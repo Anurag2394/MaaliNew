@@ -24,7 +24,7 @@ const ProductDetail = () => {
   const router = useRouter();
 
   const validProductId = productId || 'PLT-SUC-SNKP';
-
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [selectedSize, setSelectedSize] = useState<'Regular' | 'Large' | 'XL'>('Regular');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -78,7 +78,7 @@ const ProductDetail = () => {
     }
   }, [validProductId]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     if (product) {
       const availableStock = product.stockQuantity[selectedSize];
       if (quantity > availableStock) {
@@ -86,11 +86,41 @@ const ProductDetail = () => {
         return;
       }
 
-      console.log('Added to cart:', { ...product, selectedSize, quantity });
-      setIsItemAdded(true);
+      try {
+        // Prepare data to send to the API
+        const cartItem = {
+          productId: product.productId,
+          productName: product.productName,
+          selectedSize,
+          quantity,
+          price: product.price[selectedSize],
+          currency: product.currency,
+        };
+
+        // API call to add the product to the cart
+        const response = await fetch(`${config.BASE_URL}/cart/addToCart`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(cartItem),
+        });
+
+        const data = await response.json();
+        console.log('Add to cart response:', data);
+
+        if (data.success) {
+          setIsItemAdded(true);
+        } else {
+          Alert.alert('Error', 'Failed to add item to cart.');
+        }
+      } catch (error) {
+        console.error('Failed to add to cart:', error);
+        Alert.alert('Error', 'Failed to add item to cart.');
+      }
     }
   }, [product, selectedSize, quantity]);
-        
+
   const incrementQuantity = useCallback(() => {
     if (product) {
       if (quantity < product.stockQuantity[selectedSize]) {
@@ -145,11 +175,10 @@ const ProductDetail = () => {
       <Text style={styles.productName}>{product.productName}</Text>
       <Text style={styles.productDescription}>{product.description}</Text>
       <Text style={styles.price}>
-  {typeof product.price[selectedSize] === 'number' 
-    ? `${product.currency} ${product.price[selectedSize].toFixed(2)}`
-    : `${product.currency} Price unavailable`}
-</Text>
-s
+        {typeof product.price[selectedSize] === 'number' 
+          ? `${product.currency} ${product.price[selectedSize].toFixed(2)}`
+          : `${product.currency} Price unavailable`}
+      </Text>
 
       {/* Ratings and Reviews */}
       <View style={styles.ratingsContainer}>
