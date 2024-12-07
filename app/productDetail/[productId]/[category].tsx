@@ -9,34 +9,49 @@ const ProductDetail = () => {
   const router = useRouter();
 
   const validProductId = productId || 'PLT-SUC-SNKP';
-
   const [product, setProduct] = useState(null);
-  const [selectedUnit, setSelectedUnit] = useState('Regular'); // Default size
+  const [selectedUnit, setSelectedUnit] = useState();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isItemAdded, setIsItemAdded] = useState(false);
 
-  // Fetch product details
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
         const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${category}`;
-        const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
         const dataJS = await response.json();
         const parsedResults = dataJS.results;
-
         if (Array.isArray(parsedResults) && parsedResults.length > 0) {
           const productData = parsedResults[0];
+          const keys = Object.keys(productData.quantity);
+          console.log(keys, 'keys');
+          setSelectedUnit(keys[0])
 
-          // Ensure images are parsed as an array
+       
+        console.log(productData, 'productDataproductData', typeof productData.images)
+
+          // Ensure images are properly parsed
           if (productData.images && typeof productData.images === 'string') {
-            productData.images = JSON.parse(productData.images);
+
+            try {
+              productData.images = JSON.parse(productData.images);
+            } catch (err) {
+              console.error('Error parsing images array:', err);
+            }
           }
 
+          // Set the product data if images are available
           if (productData.images && productData.images[selectedUnit]) {
             setProduct(productData);
           } else {
-            throw new Error('No images available for the selected size');
+            throw new Error('Product images are missing or empty for the selected unit');
           }
         } else {
           throw new Error('No valid product data found');
@@ -52,23 +67,24 @@ const ProductDetail = () => {
     }
   }, [validProductId, selectedUnit]);
 
-  // Add to cart handler
   const handleAddToCart = useCallback(async () => {
     if (product) {
       try {
-        const selectedDiscount = 0; // Adjust if needed
+        const selectedDiscount = 0;
         const cartItem = {
-          phone_number: 7417422095,  // Replace with actual user session
+          phone_number: 7417422095, // Fetch this from user session or state
           product_id: product.productId,
           quantity: quantity,
           price: product.price[selectedUnit],
           discount: selectedDiscount,
-          unit: selectedUnit
+          unit: selectedUnit,
         };
 
         const response = await fetch(`http://192.168.29.14:8002/cart/addItemToCart`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify(cartItem),
         });
 
@@ -85,12 +101,14 @@ const ProductDetail = () => {
     }
   }, [product, selectedUnit, quantity]);
 
-  // Quantity Increment/Decrement
   const incrementQuantity = useCallback(() => {
-    if (product && quantity < product.quantity[selectedUnit]) {
-      setQuantity((prev) => prev + 1);
-    } else {
-      Alert.alert('Stock limit reached', `Only ${product?.quantity[selectedUnit]} items available.`);
+    if (product) {
+      const availableStock = product.quantity[selectedUnit];
+      if (quantity < availableStock) {
+        setQuantity((prev) => prev + 1);
+      } else {
+        Alert.alert('Maximum stock reached', `Only ${availableStock} items available in ${selectedUnit} unit.`);
+      }
     }
   }, [product, selectedUnit, quantity]);
 
@@ -100,11 +118,15 @@ const ProductDetail = () => {
     }
   }, [quantity]);
 
+
+  console.log(product, 'jojooko')
+
   if (!product) return <Text>Loading...</Text>;
 
-  // Get selected unit images
-  const selectedUnitImages = product.images[selectedUnit];
-
+  // Handle the images for selected unit
+  let selectedUnitImages = product.images[selectedUnit];
+  selectedUnitImages = JSON.parse(selectedUnitImages)
+  console.log(selectedUnitImages[0], selectedUnitImages[selectedImageIndex], '1111111111')
   return (
     <ScrollView style={styles.container}>
       {/* Image Slider */}
@@ -112,7 +134,7 @@ const ProductDetail = () => {
         {selectedUnitImages && selectedUnitImages.length > 0 ? (
           <>
             <Image
-              source={{ uri: selectedUnitImages[selectedImageIndex]?.replace('dl=0', 'raw=1') }}
+              source={{ uri: selectedUnitImages[selectedImageIndex].replace('dl=0', 'raw=1') }}
               style={styles.mainImage}
               resizeMode="contain"
             />
@@ -122,7 +144,10 @@ const ProductDetail = () => {
               renderItem={({ item, index }) => (
                 <TouchableOpacity
                   onPress={() => setSelectedImageIndex(index)}
-                  style={[styles.thumbnailContainer, index === selectedImageIndex && styles.selectedThumbnail]}>
+                  style={[
+                    styles.thumbnailContainer,
+                    index === selectedImageIndex && styles.selectedThumbnail,
+                  ]}>
                   <Image
                     source={{ uri: item.replace('dl=0', 'raw=1') }}
                     style={styles.thumbnail}
@@ -143,28 +168,33 @@ const ProductDetail = () => {
       <Text style={styles.productName}>{product.productName}</Text>
       <Text style={styles.productDescription}>{product.description}</Text>
       <Text style={styles.price}>
-        {product.price[selectedUnit] ? `${product.currency} ${parseFloat(product.price[selectedUnit]).toFixed(2)}` : 'Price unavailable'}
+        {typeof product.price[selectedUnit] === 'string'
+          ? `${product.currency} ${parseFloat(product.price[selectedUnit]).toFixed(2)}`
+          : `${product.currency} Price unavailable`}
       </Text>
 
-      {/* Ratings */}
+      {/* Ratings and Reviews */}
       <View style={styles.ratingsContainer}>
         <Text style={styles.ratingsText}>
           {product.ratings.averageRating} ({product.ratings.numberOfReviews} reviews)
         </Text>
       </View>
 
-      {/* Size Selector */}
+      {/* Unit Type Selector */}
       <View style={styles.sizeContainer}>
-        {Object.keys(product.price).map((unit) => (
-          <TouchableOpacity
-            key={unit}
-            style={[styles.sizeButton, selectedUnit === unit && styles.selectedSizeButton]}
-            onPress={() => setSelectedUnit(unit)}>
-            <Text style={styles.sizeButtonText}>
-              {unit} ({product.quantity[unit]} available)
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {Object.keys(product.price).map((unit) => {
+          const availableStock = product.quantity[unit];
+          return (
+            <TouchableOpacity
+              key={unit}
+              style={[styles.sizeButton, selectedUnit === unit && styles.selectedSizeButton]}
+              onPress={() => setSelectedUnit(unit)}>
+              <Text style={styles.sizeButtonText}>
+                {unit} ({availableStock} available)
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Quantity Selector */}
@@ -189,7 +219,6 @@ const ProductDetail = () => {
         <Text style={styles.addToCartText}>Add to Cart</Text>
       </TouchableOpacity>
 
-      {/* Item Added confirmation */}
       {isItemAdded && (
         <View style={styles.itemAddedText}>
           <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
@@ -247,49 +276,48 @@ const styles = StyleSheet.create({
   },
   ratingsText: {
     fontSize: 16,
-    color: 'gray',
   },
   sizeContainer: {
     flexDirection: 'row',
-    marginVertical: 8,
+    marginVertical: 16,
   },
   sizeButton: {
     padding: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
     marginRight: 8,
+    backgroundColor: '#ddd',
+    borderRadius: 4,
   },
   selectedSizeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#007BFF',
   },
   sizeButtonText: {
-    fontSize: 16,
+    color: '#fff',
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 16,
   },
   quantityButton: {
     padding: 10,
-    backgroundColor: '#ccc',
-    borderRadius: 50,
+    backgroundColor: '#ddd',
+    borderRadius: 4,
   },
   disabledButton: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#f0f0f0',
   },
   quantityButtonText: {
-    fontSize: 18,
+    fontSize: 20,
   },
   quantityText: {
-    fontSize: 18,
+    fontSize: 20,
     marginHorizontal: 20,
   },
   addToCartButton: {
-    backgroundColor: '#4CAF50',
-    padding: 16,
-    borderRadius: 4,
+    backgroundColor: '#28a745',
+    padding: 12,
     alignItems: 'center',
+    borderRadius: 8,
   },
   addToCartText: {
     color: '#fff',
@@ -304,10 +332,10 @@ const styles = StyleSheet.create({
     color: 'green',
   },
   goToCartButton: {
-    backgroundColor: '#ff5722',
-    padding: 10,
-    borderRadius: 4,
     marginTop: 8,
+    padding: 10,
+    backgroundColor: '#007BFF',
+    borderRadius: 4,
   },
   goToCartText: {
     color: '#fff',
