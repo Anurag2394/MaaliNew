@@ -10,7 +10,7 @@ const ProductDetail = () => {
 
   const validProductId = productId || 'PLT-SUC-SNKP';
   const [product, setProduct] = useState(null);
-  const [selectedUnit, setSelectedUnit] = useState();
+  const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isItemAdded, setIsItemAdded] = useState(false);
@@ -31,12 +31,7 @@ const ProductDetail = () => {
         if (Array.isArray(parsedResults) && parsedResults.length > 0) {
           const productData = parsedResults[0];
           const keys = Object.keys(productData.quantity);
-          console.log(keys, 'keys');
-          setSelectedUnit(keys[0])
-
-       
-        console.log(productData, 'productDataproductData', typeof productData.images)
-
+          setSelectedUnit(keys[0]);
           // Ensure images are properly parsed
           if (productData.images && typeof productData.images === 'string') {
 
@@ -119,14 +114,11 @@ const ProductDetail = () => {
   }, [quantity]);
 
 
-  console.log(product, 'jojooko')
-
   if (!product) return <Text>Loading...</Text>;
 
   // Handle the images for selected unit
   let selectedUnitImages = product.images[selectedUnit];
   selectedUnitImages = JSON.parse(selectedUnitImages)
-  console.log(selectedUnitImages[0], selectedUnitImages[selectedImageIndex], '1111111111')
   return (
     <ScrollView style={styles.container}>
       {/* Image Slider */}
