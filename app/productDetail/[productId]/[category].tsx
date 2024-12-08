@@ -10,11 +10,12 @@ const ProductDetail = () => {
 
   const validProductId = productId || 'PLT-SUC-SNKP';
   const [product, setProduct] = useState(null);
-  const [selectedUnit, setSelectedUnit] = useState<string>('');
+  const [selectedUnit, setSelectedUnit] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isItemAdded, setIsItemAdded] = useState(false);
 
+  // Fetch product details once
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
@@ -28,13 +29,14 @@ const ProductDetail = () => {
 
         const dataJS = await response.json();
         const parsedResults = dataJS.results;
+
         if (Array.isArray(parsedResults) && parsedResults.length > 0) {
           const productData = parsedResults[0];
           const keys = Object.keys(productData.quantity);
-          setSelectedUnit(keys[0]);
+          setSelectedUnit(keys[0]); // Set default unit to the first one
+
           // Ensure images are properly parsed
           if (productData.images && typeof productData.images === 'string') {
-
             try {
               productData.images = JSON.parse(productData.images);
             } catch (err) {
@@ -42,7 +44,7 @@ const ProductDetail = () => {
             }
           }
 
-          // Set the product data if images are available
+          // Ensure all images exist for the selected unit
           if (productData.images && productData.images[selectedUnit]) {
             setProduct(productData);
           } else {
@@ -60,8 +62,9 @@ const ProductDetail = () => {
     if (validProductId) {
       fetchProductDetail();
     }
-  }, [validProductId, selectedUnit]);
+  }, [validProductId]); // Dependency on selectedUnit to change images when unit changes
 
+  // Handle Add to Cart
   const handleAddToCart = useCallback(async () => {
     if (product) {
       try {
@@ -96,6 +99,7 @@ const ProductDetail = () => {
     }
   }, [product, selectedUnit, quantity]);
 
+  // Quantity Handling
   const incrementQuantity = useCallback(() => {
     if (product) {
       const availableStock = product.quantity[selectedUnit];
@@ -113,12 +117,18 @@ const ProductDetail = () => {
     }
   }, [quantity]);
 
+  // Reset the selected image index whenever the selected unit changes
+  useEffect(() => {
+    setSelectedImageIndex(0); // Reset to the first image when changing the unit
+  }, [selectedUnit]);
 
+  // Fallback loading state
   if (!product) return <Text>Loading...</Text>;
 
   // Handle the images for selected unit
   let selectedUnitImages = product.images[selectedUnit];
-  selectedUnitImages = JSON.parse(selectedUnitImages)
+  selectedUnitImages = JSON.parse(selectedUnitImages) || []; // Ensure it's an array
+
   return (
     <ScrollView style={styles.container}>
       {/* Image Slider */}
@@ -136,10 +146,7 @@ const ProductDetail = () => {
               renderItem={({ item, index }) => (
                 <TouchableOpacity
                   onPress={() => setSelectedImageIndex(index)}
-                  style={[
-                    styles.thumbnailContainer,
-                    index === selectedImageIndex && styles.selectedThumbnail,
-                  ]}>
+                  style={[styles.thumbnailContainer, index === selectedImageIndex && styles.selectedThumbnail]}>
                   <Image
                     source={{ uri: item.replace('dl=0', 'raw=1') }}
                     style={styles.thumbnail}
@@ -191,17 +198,11 @@ const ProductDetail = () => {
 
       {/* Quantity Selector */}
       <View style={styles.quantityContainer}>
-        <TouchableOpacity
-          style={[styles.quantityButton, quantity <= 1 && styles.disabledButton]}
-          onPress={decrementQuantity}
-          disabled={quantity <= 1}>
+        <TouchableOpacity style={styles.quantityButton} onPress={decrementQuantity}>
           <Text style={styles.quantityButtonText}>-</Text>
         </TouchableOpacity>
         <Text style={styles.quantityText}>{quantity}</Text>
-        <TouchableOpacity
-          style={[styles.quantityButton, quantity >= product.quantity[selectedUnit] && styles.disabledButton]}
-          onPress={incrementQuantity}
-          disabled={quantity >= product.quantity[selectedUnit]}>
+        <TouchableOpacity style={styles.quantityButton} onPress={incrementQuantity}>
           <Text style={styles.quantityButtonText}>+</Text>
         </TouchableOpacity>
       </View>
@@ -295,9 +296,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
     borderRadius: 4,
   },
-  disabledButton: {
-    backgroundColor: '#f0f0f0',
-  },
   quantityButtonText: {
     fontSize: 20,
   },
@@ -327,7 +325,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 10,
     backgroundColor: '#007BFF',
-    borderRadius: 4,
+    borderRadius: 8,
   },
   goToCartText: {
     color: '#fff',
