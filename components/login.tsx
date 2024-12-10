@@ -3,6 +3,8 @@ import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity, Ima
 import config from '@/config';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import { setToken, getToken, removeToken } from '@/utiles/auth'; // Import token functions
 
 const Login = (props) => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -11,6 +13,29 @@ const Login = (props) => {
   const [otpSent, setOtpSent] = useState(false);
   const navigation = useNavigation();
 
+  // Function to save the tokens securely in AsyncStorage
+  const saveTokens = async (accessToken, refreshToken) => {  
+    try {
+      await setToken(accessToken); // Save only the access token with the same key
+      //await AsyncStorage.setItem('refresh_token', refreshToken); // Save refresh token with a separate key
+      console.log('Tokens saved!');
+    } catch (error) {
+      console.error('Error saving tokens', error);
+    }
+  };
+
+  // Function to retrieve the access token from AsyncStorage
+  const getAccessToken = async () => {
+    try {
+      const token = await getToken(); // Use the utility function to get the token
+      return token;
+    } catch (error) {
+      console.error('Error retrieving access token', error);
+      return null;
+    }
+  };
+
+  // Function to handle sending OTP
   const sendOtp = async () => {
     if (!phoneNumber) {
       Alert.alert('Validation Error', 'Please enter a valid phone number.');
@@ -37,6 +62,7 @@ const Login = (props) => {
     }
   };
 
+  // Function to handle verifying OTP
   const verifyOtp = async () => {
     if (!otp) {
       Alert.alert('Validation Error', 'Please enter the OTP.');
@@ -52,20 +78,38 @@ const Login = (props) => {
       });
 
       if (response.status === 200) {
+        const { access, refresh } = response.data.results; // Assuming the response contains both tokens
+         
+        // Save the tokens
+        await saveTokens(access, refresh);
+
         Alert.alert('Success', 'You are now logged in!');
-        props.loginHandler(true)
+        props.loginHandler(true); // Pass a function to update the parent component state
       } else {
         Alert.alert('Error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Please enter valid OTP.');
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Function to handle skipping the login flow (e.g., in case of guest login)
   const handleSkip = () => {
-     props.loginHandler(true)
+    props.loginHandler(true); // Set login state to true and proceed
+  };
+
+  // Function to handle logout (clearing the tokens)
+  const logout = async () => {
+    try {
+      await removeToken(); // Remove the access token using the utility function
+      await AsyncStorage.removeItem('refresh_token'); // Remove the refresh token
+      console.log('Tokens removed');
+      props.loginHandler(false); // Update parent component to reflect user is logged out
+    } catch (error) {
+      console.error('Error clearing tokens', error);
+    }
   };
 
   return (
@@ -127,6 +171,8 @@ const Login = (props) => {
         >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
+
+     
       </View>
     </ImageBackground>
   );
@@ -184,13 +230,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
   },
-  signupText: {
+  logoutButton: {
     marginTop: 20,
-    fontSize: 14,
-    color: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#E74C3C',
+    borderRadius: 10,
+    alignItems: 'center',
   },
-  signupLink: {
-    color: '#6DBE45', // Earthy green tone for links
+  logoutText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   backgroundImage: {
     opacity: 0.6, // Add some opacity to the background to make text stand out

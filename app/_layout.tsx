@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import HeaderComponent from '@/components/HeaderComponent';
 import Login from '@/components/login';
-import { getUserSession } from '@/utiles/auth'; // Assuming you have a function to check login status
+import { getToken } from '@/utiles/auth'; // Assuming you have a function to check login status
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -22,7 +22,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     const checkLoginStatus = async () => {
-      const userSession = await getUserSession();  // You need to implement this check
+      const userSession = await getToken();  // You need to implement this check
       setIsLoggedIn(!!userSession); // Update state based on session
     };
 
