@@ -45,7 +45,7 @@ const ProductDetail = () => {
           }
 
           // Ensure all images exist for the selected unit
-          if (productData.images && productData.images[selectedUnit]) {
+          if (productData.images &&  typeof productData.images === 'object') {
             setProduct(productData);
           } else {
             throw new Error('Product images are missing or empty for the selected unit');
