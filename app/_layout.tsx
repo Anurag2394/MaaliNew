@@ -23,6 +23,7 @@ export default function RootLayout() {
   useEffect(() => {
     const checkLoginStatus = async () => {
       const userSession = await getToken();  // You need to implement this check
+      console.log(userSession,'###')
       setIsLoggedIn(!!userSession); // Update state based on session
     };
 

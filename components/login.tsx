@@ -3,8 +3,52 @@ import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity, Ima
 import config from '@/config';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
-import { setToken, getToken, removeToken } from '@/utiles/auth'; // Import token functions
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import { setToken, getToken, removeToken, setAccessToken, getAccessToken, removeAccessToken } from '@/utiles/auth'; 
+
+// Authentication service (move logic to a separate file, e.g., authService.js)
+const sendOtp = async (phoneNumber) => {
+  try {
+    const response = await axios.post(`${config.LOGIN_URL}/account/sendOtp`, { phone_number: phoneNumber });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const verifyOtp = async (phoneNumber, otp) => {
+  try {
+    const response = await axios.post(`${config.LOGIN_URL}/account/verifyOtp`, { phone_number: phoneNumber, otp });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = await getToken();
+    if (!refreshToken) {
+      console.log('No refresh token found');
+      return null;
+    }
+
+    const response = await axios.post(`${config.LOGIN_URL}/account/api/token/refresh/`, {
+      refresh_token: refreshToken,
+    });
+
+    if (response.status === 200) {
+      await setAccessToken(response.data.access);
+      return response.data.access;
+    } else {
+      console.log('Failed to refresh token');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error refreshing access token:', error);
+    return null;
+  }
+};
 
 const Login = (props) => {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -13,30 +57,19 @@ const Login = (props) => {
   const [otpSent, setOtpSent] = useState(false);
   const navigation = useNavigation();
 
-  // Function to save the tokens securely in AsyncStorage
+  // Function to handle saving tokens
   const saveTokens = async (accessToken, refreshToken) => {  
     try {
-      await setToken(accessToken); // Save only the access token with the same key
-      //await AsyncStorage.setItem('refresh_token', refreshToken); // Save refresh token with a separate key
+      await setToken(refreshToken); 
+      await setAccessToken(accessToken); 
       console.log('Tokens saved!');
     } catch (error) {
       console.error('Error saving tokens', error);
     }
   };
 
-  // Function to retrieve the access token from AsyncStorage
-  const getAccessToken = async () => {
-    try {
-      const token = await getToken(); // Use the utility function to get the token
-      return token;
-    } catch (error) {
-      console.error('Error retrieving access token', error);
-      return null;
-    }
-  };
-
-  // Function to handle sending OTP
-  const sendOtp = async () => {
+  // Function to handle OTP send
+  const sendOtpHandler = async () => {
     if (!phoneNumber) {
       Alert.alert('Validation Error', 'Please enter a valid phone number.');
       return;
@@ -45,9 +78,7 @@ const Login = (props) => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${config.LOGIN_URL}/account/sendOtp`, {
-        phone_number: phoneNumber,
-      });
+      const response = await sendOtp(phoneNumber);
 
       if (response.status === 200) {
         Alert.alert('Success', 'OTP sent to your phone!');
@@ -62,8 +93,8 @@ const Login = (props) => {
     }
   };
 
-  // Function to handle verifying OTP
-  const verifyOtp = async () => {
+  // Function to handle OTP verification
+  const verifyOtpHandler = async () => {
     if (!otp) {
       Alert.alert('Validation Error', 'Please enter the OTP.');
       return;
@@ -72,49 +103,43 @@ const Login = (props) => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${config.LOGIN_URL}/account/verifyOtp`, {
-        phone_number: phoneNumber,
-        otp,
-      });
+      const response = await verifyOtp(phoneNumber, otp);
 
       if (response.status === 200) {
-        const { access, refresh } = response.data.results; // Assuming the response contains both tokens
-         
-        // Save the tokens
-        await saveTokens(access, refresh);
-
+        const { access, refresh } = response.data.results; 
+        await saveTokens(access, refresh); 
         Alert.alert('Success', 'You are now logged in!');
-        props.loginHandler(true); // Pass a function to update the parent component state
+        props.loginHandler(true); // Update login state in parent component
       } else {
         Alert.alert('Error', 'Invalid OTP. Please try again.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      Alert.alert('Error', 'Something went wrong. Please try again later.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Function to handle skipping the login flow (e.g., in case of guest login)
+  // Function to handle skipping the login flow
   const handleSkip = () => {
-    props.loginHandler(true); // Set login state to true and proceed
+    props.loginHandler(true); // Proceed without login
   };
 
-  // Function to handle logout (clearing the tokens)
+  // Function to handle logout
   const logout = async () => {
     try {
-      await removeToken(); // Remove the access token using the utility function
-      await AsyncStorage.removeItem('refresh_token'); // Remove the refresh token
-      console.log('Tokens removed');
-      props.loginHandler(false); // Update parent component to reflect user is logged out
+      await removeToken();
+      await removeAccessToken();
+      console.log('Logged out');
+      props.loginHandler(false); // Update parent component to reflect logout
     } catch (error) {
-      console.error('Error clearing tokens', error);
+      console.error('Error logging out:', error);
     }
   };
 
   return (
     <ImageBackground
-      source={require('@/assets/images/plant1.jpg')} // You can replace this with any plant image or gradient
+      source={require('@/assets/images/plant1.jpg')}
       style={styles.container}
       imageStyle={styles.backgroundImage}
     >
@@ -148,7 +173,7 @@ const Login = (props) => {
         {!otpSent ? (
           <TouchableOpacity
             style={[styles.button, { backgroundColor: isLoading ? '#ccc' : '#6DBE45' }]}
-            onPress={sendOtp}
+            onPress={sendOtpHandler}
             disabled={isLoading}
           >
             <Text style={styles.buttonText}>{isLoading ? 'Sending OTP...' : 'Send OTP'}</Text>
@@ -156,7 +181,7 @@ const Login = (props) => {
         ) : (
           <TouchableOpacity
             style={[styles.button, { backgroundColor: isLoading ? '#ccc' : '#4CAF50' }]}
-            onPress={verifyOtp}
+            onPress={verifyOtpHandler}
             disabled={isLoading}
           >
             <Text style={styles.buttonText}>{isLoading ? 'Verifying OTP...' : 'Verify OTP'}</Text>
@@ -172,7 +197,13 @@ const Login = (props) => {
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
 
-     
+        {/* Logout Button (if logged in) */}
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={logout}
+        >
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -185,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overlay: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Dark overlay to improve text contrast
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     paddingHorizontal: 20,
     paddingVertical: 30,
     borderRadius: 10,
@@ -208,7 +239,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     paddingLeft: 15,
     fontSize: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)', // Slight transparency for natural look
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     color: '#333',
   },
   button: {
@@ -244,7 +275,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   backgroundImage: {
-    opacity: 0.6, // Add some opacity to the background to make text stand out
+    opacity: 0.6,
     borderRadius: 10,
   },
 });
