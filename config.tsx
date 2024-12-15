@@ -1,6 +1,6 @@
-const BASE_URL = 'http://192.168.29.14:8000'
-const LOGIN_URL = 'http://192.168.29.14:8001'
-const CART_URL = 'http://192.168.29.14:8002'
+const BASE_URL = 'http://localhost:8000'
+const LOGIN_URL = 'http://localhost:8001'
+const CART_URL = 'http://localhost:8002'
 
 export default {
     BASE_URL,
