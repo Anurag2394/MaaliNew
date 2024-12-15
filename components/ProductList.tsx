@@ -123,7 +123,18 @@ const ProductList = () => {
             discount: selectedDiscount,
           },
         }));
-        setIsModalVisible(false);
+
+        // Trigger modal closing animation
+        Animated.timing(modalSlideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+
+        // Wait for the animation to finish before hiding the modal
+        setTimeout(() => {
+          setIsModalVisible(false);
+        }, 300);
       } else {
         console.error('Error adding item to cart:', data.message || 'Unknown error');
       }
@@ -275,7 +286,6 @@ const ProductList = () => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   productContainer: {
