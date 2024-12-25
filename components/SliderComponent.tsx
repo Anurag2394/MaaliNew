@@ -68,7 +68,6 @@ const SliderComponent: React.FC = () => {
   // Render each image item
   const renderItem = ({ item }: { item: ImageItem }) => {
     // Ensure the image URI is valid before using it
-    console.log(item, 'item')
     const imageUri = item.uri ? item.uri.replace('dl=0', 'raw=1') : ''; // Default to empty string if invalid
 
     return (

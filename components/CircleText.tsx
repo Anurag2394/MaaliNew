@@ -19,7 +19,7 @@ const CircleText: React.FC = () => {
       try {
         const response = await fetch(`${config.BASE_URL}/productCatalog/getHomePageScrollerData`);
         const data = await response.json();
-        console.log(data, 'data');
+    
         
         // Ensure results is a valid JSON string before parsing
         if (typeof data.results === 'string') {

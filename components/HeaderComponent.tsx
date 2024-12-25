@@ -1,55 +1,125 @@
-import React, { useState } from 'react';
-import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import config from '@/config';
 import { Ionicons } from '@expo/vector-icons'; // For search and profile icons
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function Header() {
-  const [isSearchMode, setIsSearchMode] = useState(false); // State to toggle between header and search mode
-  const [searchQuery, setSearchQuery] = useState(''); // State to hold the search query
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isLoading, setIsLoading] = useState(false); // New state for loading indicator
+  const debounceTimeout = useRef(null); // Reference to store the timeout ID
+  const router = useRouter();
+  const fetchProducts = async (query) => {
+    if (!query) return;
 
-  // Toggle search mode
+    setIsLoading(true); // Show loading indicator when fetching data
+    try {
+      const response = await fetch(`${config.SEARCH_URL}/searchProducts/getMatchingProducts?word=${query}`);
+      const data = await response.json();
+      console.log('API Response:', data); // Log the response
+      setSearchResults(data.results); // Assuming data.results holds the list of search results
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setIsLoading(false); // Hide loading indicator after fetch completes
+    }
+  };
+
+  const handleSearchChange = (text) => {
+    console.log('Search Query:', text); // Log the query as the user types
+    setSearchQuery(text);
+
+    // Clear the previous timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    // Set a new timeout
+    debounceTimeout.current = setTimeout(() => {
+      fetchProducts(text); // Fetch products after delay
+    }, 1000); // 1000ms delay
+  };
+
   const toggleSearchMode = () => {
     setIsSearchMode(!isSearchMode);
     if (isSearchMode) {
       setSearchQuery(''); // Reset search query when exiting search mode
+      setSearchResults([]); // Clear search results
     }
   };
 
+  // Function to handle navigation when an item is clicked
+  const handleProductClick = (productId, category) => {
+    // Navigate to product detail page with productId and category
+    setSearchQuery(''); // Reset search query when exiting search mode
+    setIsSearchMode(!isSearchMode);
+    setSearchResults([]); // Clear search results
+    router.push(`/productDetail/${productId}/${category}`);
+  };
+
   return (
-    <View style={styles.container}>
-      {/* Only show logo and title when not in search mode */}
-      {!isSearchMode && (
-        <>
-          <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo} />
-          <Text style={styles.title}></Text>
-        </>
-      )}
+    <View style={styles.mainContainer}>
+      <View style={styles.container}>
+        {!isSearchMode && (
+          <>
+            <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo} />
+            <Text style={styles.title}></Text>
+          </>
+        )}
+        {isSearchMode && (
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search..."
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+            />
+            <TouchableOpacity onPress={toggleSearchMode} style={styles.searchButton}>
+              <Ionicons name="close" size={10} color="white" />
+            </TouchableOpacity>
+          </View>
+        )}
 
-      {/* Full width search bar when in search mode */}
-      {isSearchMode && (
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search..."
-            value={searchQuery}
-            onChangeText={(text) => setSearchQuery(text)}
-          />
-          <TouchableOpacity onPress={toggleSearchMode} style={styles.searchButton}>
-            <Ionicons name="close" size={10} color="white" />
+        {/* Show loader if data is being fetched */}
+        {/* {isSearchMode && isLoading && (
+          <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
+        )} */}
+
+        {/* Render the search results below the search bar */}
+
+
+        
+
+        {/* Only show the profile icon when not in search mode */}
+        {!isSearchMode && (
+          <TouchableOpacity onPress={() => alert('Profile or options clicked')} style={styles.profileIcon}>
+            <Ionicons name="shopping-cart-outline" size={30} color="#333" />
           </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Only show the profile icon when not in search mode */}
-      {!isSearchMode && (
-        <TouchableOpacity onPress={() => alert('Profile or options clicked')} style={styles.profileIcon}>
-          <Ionicons name="person-circle-outline" size={30} color="#333" />
+        )}
+        <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
+          <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
         </TouchableOpacity>
-      )}
-
-      {/* Always show the search icon in the header */}
-      <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
-        <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
-      </TouchableOpacity>
+      </View>
+      {isSearchMode && !isLoading && searchResults.length > 0 ? (
+        <ScrollView style={styles.resultList}>
+          {searchResults.map((item) => (
+            <TouchableOpacity
+              key={item.product_id.toString()}
+              style={styles.resultItem}
+              onPress={() => handleProductClick(item.product_id, item.category)} // On click, navigate
+            >
+              <Image
+                source={{ uri: (JSON.parse(item.imageUrl)[0]).toString().replace('dl=0', 'raw=1') }}
+                style={styles.image}
+                resizeMode="stretch"
+              />
+              <Text style={styles.resultText}>{item.product_name}</Text>
+            </TouchableOpacity>
+          )) }
+        </ScrollView>
+      ) :  ( <ScrollView style={styles.resultList}> <Text style={styles.noResultsText}>No results found</Text> </ScrollView>)}
     </View>
   );
 }
@@ -67,6 +137,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  image: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    marginRight: 10,
   },
   reactLogo: {
     height: 50,
@@ -93,6 +169,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderRadius: 25,
   },
+  mainContainer: {
+    backgroundColor: '#fff',
+  },
   searchButton: {
     padding: 10,
     backgroundColor: '#4CAF50',
@@ -108,5 +187,36 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     marginLeft: 10,
+  },
+  resultList: {
+    marginTop: 10,
+    width: '100%',
+    backgroundColor: '#fff',
+    marginStart: 0,
+    maxHeight: 200,
+    overflow: 'scroll',
+    paddingBottom: 10, // Add padding to prevent results from touching the bottom
+  },
+  resultItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  resultText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  noResultsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#777',
+    marginTop: 20,
+  },
+  loader: {
+    marginTop: 20,
+    alignSelf: 'center', // Center the loader horizontally
   },
 });

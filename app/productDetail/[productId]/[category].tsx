@@ -78,7 +78,7 @@ const ProductDetail = () => {
           size: selectedUnit,
         };
 
-        const response = await fetch(`http://localhost:8002/cart/addItemToCart`, {
+        const response = await fetch(`http://192.168.29.14:8002/cart/addItemToCart`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
