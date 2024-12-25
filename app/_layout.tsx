@@ -58,15 +58,15 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen 
             name="Maali"
-            options={{ title: 'Home' }}  // Custom title for the Home screen
+            options={{ title: 'Home',headerShown: false }}  // Custom title for the Home screen
           />
           <Stack.Screen 
             name="product"
-            options={{ title: 'Product Details' }}  // Custom title for the product screen
+            options={{ title: 'Product Details', headerShown: false}}  // Custom title for the product screen
           />
           <Stack.Screen 
             name="checkout" 
-            options={{ title: 'Checkout' }}  // Custom title for the checkout screen
+            options={{ title: 'Checkout',headerShown: false}}  // Custom title for the checkout screen
           />
           <Stack.Screen 
             name="+not-found"

@@ -17,7 +17,7 @@ export default function Root({ children }: PropsWithChildren) {
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
           However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.
         */}
-        <ScrollViewStyleReset />
+      <ScrollViewStyleReset />
 
         {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
@@ -32,8 +32,11 @@ const responsiveBackground = `
 body {
   background-color: #fff;
 }
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #000;
   }
+  
+
 }`;

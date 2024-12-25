@@ -167,7 +167,7 @@ const CheckoutPage = () => {
           <Text>No items in the cart.</Text>
         ) : (
           items.map(item => (
-            <View style={styles.itemContainer} key={item.id}>
+            <View style={styles.itemContainer} key={`${item.product_id}-${item.size}`}>
               <View style={styles.item}>
                 <Image
                   source={{ uri: item.image_url.replace('dl=0', 'raw=1') }}

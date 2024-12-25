@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Pressable } from 'react-native';
 import config from '@/config';
 import { Ionicons } from '@expo/vector-icons'; // For search and profile icons
+import AntDesign from '@expo/vector-icons/AntDesign';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 
 export default function Header() {
@@ -63,10 +64,9 @@ export default function Header() {
     <View style={styles.mainContainer}>
       <View style={styles.container}>
         {!isSearchMode && (
-          <>
-            <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo} />
-            <Text style={styles.title}></Text>
-          </>
+          <Pressable onPress={() => router.push('/')}>
+            <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo}  />
+          </Pressable>
         )}
         {isSearchMode && (
           <View style={styles.searchContainer}>
@@ -81,30 +81,25 @@ export default function Header() {
             </TouchableOpacity>
           </View>
         )}
-
-        {/* Show loader if data is being fetched */}
-        {/* {isSearchMode && isLoading && (
-          <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />
-        )} */}
-
-        {/* Render the search results below the search bar */}
-
-
-        
+        <View style={styles.rightSection}>
+        {!isSearchMode && <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
+          <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
+        </TouchableOpacity>}
 
         {/* Only show the profile icon when not in search mode */}
         {!isSearchMode && (
-          <TouchableOpacity onPress={() => alert('Profile or options clicked')} style={styles.profileIcon}>
-            <Ionicons name="shopping-cart-outline" size={30} color="#333" />
+          <TouchableOpacity onPress={() => router.push('/Checkout')} style={styles.profileIcon}>
+            <AntDesign name="shoppingcart" size={24} color="black" />
           </TouchableOpacity>
         )}
-        <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
-          <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
-        </TouchableOpacity>
+        </View>
       </View>
-      {isSearchMode && !isLoading && searchResults.length > 0 ? (
-        <ScrollView style={styles.resultList}>
-          {searchResults.map((item) => (
+      {
+    isSearchMode && (
+    <ScrollView style={styles.resultList}>
+      {
+        !isLoading && searchResults.length > 0 ? (
+          searchResults.map((item) => (
             <TouchableOpacity
               key={item.product_id.toString()}
               style={styles.resultItem}
@@ -117,17 +112,22 @@ export default function Header() {
               />
               <Text style={styles.resultText}>{item.product_name}</Text>
             </TouchableOpacity>
-          )) }
-        </ScrollView>
-      ) :  ( <ScrollView style={styles.resultList}> <Text style={styles.noResultsText}>No results found</Text> </ScrollView>)}
+          ))
+        ) : (
+          <Text style={styles.noResultsText}>No results found</Text>
+        )
+      }
+    </ScrollView>
+  )
+}
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 25,
-    padding: 10,
+    padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -136,16 +136,23 @@ const styles = StyleSheet.create({
     shadowColor: '#000', // Shadow for iOS
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
+    marginTop: 10,
     shadowRadius: 2,
+  },
+  rightSection: {
+    display: 'flex',
+    alignItems: 'center',
+    flexDirection: 'row',
   },
   image: {
     width: 50,
     height: 50,
     borderRadius: 10,
     marginRight: 10,
+    
   },
   reactLogo: {
-    height: 50,
+    height: 60,
     width: 50,
   },
   title: {
@@ -164,7 +171,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: 10,
-    paddingLeft: 15,
     fontSize: 16,
     backgroundColor: 'transparent',
     borderRadius: 25,

@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // To remember if the user has seen the modal
 
-export default function App() {
+export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
