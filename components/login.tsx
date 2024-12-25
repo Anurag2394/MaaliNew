@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, StyleSheet, Alert, TouchableOpacity, ImageBackground } from 'react-native';
 import config from '@/config';
+import GetLocation from './GetLocation';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -196,6 +197,7 @@ const Login = (props) => {
         >
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
+      
 
         {/* Logout Button (if logged in) */}
         <TouchableOpacity

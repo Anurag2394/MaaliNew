@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import HeaderComponent from '@/components/HeaderComponent';
+
 import Login from '@/components/login';
 import { getToken } from '@/utiles/auth'; // Assuming you have a function to check login status
 
@@ -23,7 +24,7 @@ export default function RootLayout() {
   useEffect(() => {
     const checkLoginStatus = async () => {
       const userSession = await getToken();  // You need to implement this check
-      console.log(userSession,'###')
+      console.log(userSession, '###');
       setIsLoggedIn(!!userSession); // Update state based on session
     };
 
@@ -42,9 +43,7 @@ export default function RootLayout() {
     return (
       <PaperProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Login 
-            loginHandler= {(value) => setIsLoggedIn(value)}
-          />
+          <Login loginHandler={(value) => setIsLoggedIn(value)} />
         </ThemeProvider>
       </PaperProvider>
     );
@@ -58,15 +57,15 @@ export default function RootLayout() {
         <Stack>
           <Stack.Screen 
             name="Maali"
-            options={{ title: 'Home',headerShown: false }}  // Custom title for the Home screen
+            options={{ title: 'Home', headerShown: false }}  // Custom title for the Home screen
           />
           <Stack.Screen 
             name="product"
-            options={{ title: 'Product Details', headerShown: false}}  // Custom title for the product screen
+            options={{ title: 'Product Details', headerShown: false }}  // Custom title for the product screen
           />
           <Stack.Screen 
             name="checkout" 
-            options={{ title: 'Checkout',headerShown: false}}  // Custom title for the checkout screen
+            options={{ title: 'Checkout', headerShown: false }}  // Custom title for the checkout screen
           />
           <Stack.Screen 
             name="+not-found"

@@ -4,6 +4,7 @@ import config from '@/config';
 import { Ionicons } from '@expo/vector-icons'; // For search and profile icons
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import GetLocation from '@/components/GetLocation';
 
 export default function Header() {
   const [isSearchMode, setIsSearchMode] = useState(false);
@@ -62,10 +63,12 @@ export default function Header() {
 
   return (
     <View style={styles.mainContainer}>
+     
       <View style={styles.container}>
         {!isSearchMode && (
-          <Pressable onPress={() => router.push('/')}>
+          <Pressable style={styles.imageSection} onPress={() => router.push('/')}>
             <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo}  />
+            <Text style={styles.geoLocation}>  <GetLocation /> </Text>
           </Pressable>
         )}
         {isSearchMode && (
@@ -151,6 +154,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
     
   },
+  imageSection: {
+   display: 'flex',
+   flexDirection: 'row',
+   alignItems: 'center'
+  },
+
   reactLogo: {
     height: 60,
     width: 50,
@@ -167,6 +176,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%', // Take full width for the search bar
     paddingHorizontal: 15,
+  },
+  geoLocation: {
+    backgroundColor: '#fff',
+    width: 250,
+    fontSize: 10,
+    marginTop: 0
   },
   searchInput: {
     flex: 1,

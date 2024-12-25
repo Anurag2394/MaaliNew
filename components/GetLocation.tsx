@@ -2,14 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
+
+import config from '@/config';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // To remember if the user has seen the modal
 
 export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState<boolean>(false); // Default to false to hide on first launch
+  const [modalVisible, setModalVisible] = useState<boolean>(true); // Default to false to hide on first launch
+  const [suppliers, setSuppliers]= useState([]);
   const fadeAnim = useState(new Animated.Value(0))[0]; // For fade-in effect
+
+
+  
+  const isWeb = Constants.platform?.ios === undefined && Constants.platform?.android === undefined;
+
+  console.log("isWeb:", isWeb);
+
+console.log("isWeb:", isWeb);
+
+// Replace with your OpenCage Geocoding API key
+const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
 
   // Function to request location permission
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -21,26 +36,88 @@ export default function GetLocation() {
     return true;
   };
 
+
+  // Function to send location data to the backend
+  const getNearbySuppliers = async (latitude: number, longitude: number, region: string ) => {
+    try {
+      const response = await fetch(`${config.BASE_URL}/productCatalog/getNearBySuppliers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          lat:latitude,
+          long:longitude,
+          region
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch suppliers');
+      }
+
+      const data = await response.json();
+      setSuppliers(data.suppliers); // Assuming the API returns a list of suppliers
+    } catch (error) {
+      setErrorMsg('Error fetching nearby suppliers');
+    }
+  };
+
   // Function to reverse geocode the location
   const reverseGeocodeLocation = async (latitude: number, longitude: number) => {
     try {
+
+      if (isWeb) {
+        // Use OpenCage API for reverse geocoding in the browser
+        const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`);
+        const data = await response.json();
+        console.log(data, 'data!!!!!!!!!!!!!')
+        if (data.results.length > 0) {
+          const result = data.results[0];
+          const address = `${result.formatted}`;
+          setAddress(address);
+          const region = result.components.state; // Use the state component as region
+          getNearbySuppliers(latitude, longitude, region);
+        } else {
+          setErrorMsg('Address could not be found');
+        }
+      } else {
       const [result] = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (result) {
-        const address = `${result.name}, ${result.city}, ${result.region}, ${result.country}`;
+        console.log(result, '%%%%%%')
+        const address = `${result.formattedAddress}`;
         setAddress(address);
+        getNearbySuppliers(latitude, longitude, result.region)
+
       } else {
         setErrorMsg('Address could not be found');
       }
-    } catch (error) {
+    } }catch (error) {
       setErrorMsg('Error fetching address');
     }
   };
 
   // Function to get current location with high accuracy
-  const getLocation = async () => {
-    const hasPermission = await requestLocationPermission();
-    if (hasPermission) {
-      try {
+const getLocation = async () => {
+  const hasPermission = await requestLocationPermission();
+  if (hasPermission) {
+    try {
+      if (isWeb) {
+        // For web, use the browser's geolocation API
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            setLocation({ latitude, longitude });
+            await reverseGeocodeLocation(latitude, longitude);
+            setModalVisible(false); // Hide modal after getting location
+          },
+          (error) => {
+            setErrorMsg('Error getting location: ' + error.message);
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      } else {
+        // For native devices, use expo-location
         const { coords } = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.High,
           timeInterval: 5000,
@@ -50,11 +127,12 @@ export default function GetLocation() {
         setLocation({ latitude: coords.latitude, longitude: coords.longitude });
         await reverseGeocodeLocation(coords.latitude, coords.longitude);
         setModalVisible(false); // Hide modal after getting location
-      } catch (error) {
-        setErrorMsg('Error getting location');
       }
+    } catch (error) {
+      setErrorMsg('Error getting location');
     }
-  };
+  }
+};
 
   // Check if the user has already interacted with the modal (granted/denied location permissions)
   const checkModalStatus = async () => {
@@ -83,6 +161,9 @@ export default function GetLocation() {
       fadeAnim.setValue(0); // Reset opacity when modal is hidden
     }
   }, [modalVisible]); // Only trigger the fade animation when modalVisible changes
+
+
+  console.log(address, 'address', location, 'location')
 
   return (
     <View style={styles.container}>
@@ -194,11 +275,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addressContainer: {
-    marginTop: 20,
+    marginTop: 0,
+    backgroundColor: '#fff'
   },
   addressText: {
-    fontSize: 20,
+    fontSize: 10,
     fontWeight: 'bold',
+    width: 200,
     color: '#333',
     textAlign: 'center',
   },
