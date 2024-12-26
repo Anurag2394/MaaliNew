@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons'; 
 import Constants from 'expo-constants';
-
 import config from '@/config';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // To remember if the user has seen the modal
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getSupplierData, setSupplierData } from '@/utiles/auth';
 
 export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -14,17 +14,9 @@ export default function GetLocation() {
   const [modalVisible, setModalVisible] = useState<boolean>(true); // Default to false to hide on first launch
   const [suppliers, setSuppliers]= useState([]);
   const fadeAnim = useState(new Animated.Value(0))[0]; // For fade-in effect
-
-
-  
   const isWeb = Constants.platform?.ios === undefined && Constants.platform?.android === undefined;
-
-  console.log("isWeb:", isWeb);
-
-console.log("isWeb:", isWeb);
-
 // Replace with your OpenCage Geocoding API key
-const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
+   const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
 
   // Function to request location permission
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -57,7 +49,9 @@ const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4';
       }
 
       const data = await response.json();
-      setSuppliers(data.suppliers); // Assuming the API returns a list of suppliers
+      setSuppliers(data.results); // Assuming the API returns a list of suppliers
+       await setSupplierData(data.results);
+       setModalVisible(false)
     } catch (error) {
       setErrorMsg('Error fetching nearby suppliers');
     }
@@ -71,7 +65,6 @@ const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4';
         // Use OpenCage API for reverse geocoding in the browser
         const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`);
         const data = await response.json();
-        console.log(data, 'data!!!!!!!!!!!!!')
         if (data.results.length > 0) {
           const result = data.results[0];
           const address = `${result.formatted}`;
@@ -84,7 +77,6 @@ const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4';
       } else {
       const [result] = await Location.reverseGeocodeAsync({ latitude, longitude });
       if (result) {
-        console.log(result, '%%%%%%')
         const address = `${result.formattedAddress}`;
         setAddress(address);
         getNearbySuppliers(latitude, longitude, result.region)
@@ -163,7 +155,6 @@ const getLocation = async () => {
   }, [modalVisible]); // Only trigger the fade animation when modalVisible changes
 
 
-  console.log(address, 'address', location, 'location')
 
   return (
     <View style={styles.container}>

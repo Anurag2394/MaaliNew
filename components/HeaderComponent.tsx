@@ -1,18 +1,34 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Pressable } from 'react-native';
 import config from '@/config';
 import { Ionicons } from '@expo/vector-icons'; // For search and profile icons
 import AntDesign from '@expo/vector-icons/AntDesign';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import GetLocation from '@/components/GetLocation';
+import { getSupplierData } from '@/utiles/auth';
 
 export default function Header() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false); // New state for loading indicator
+  const [supplierData, setSupplierDataState] = useState(null);
   const debounceTimeout = useRef(null); // Reference to store the timeout ID
   const router = useRouter();
+
+
+
+
+  useEffect(() => {
+    // Fetch supplier data when the component is mounted
+    const fetchSupplierData = async () => {
+      const data = await getSupplierData();
+      setSupplierDataState(data); // Set the supplier data in state
+    };
+
+    fetchSupplierData(); // Call the function to fetch data
+  }, []);
+  
   const fetchProducts = async (query) => {
     if (!query) return;
 
@@ -60,6 +76,9 @@ export default function Header() {
     setSearchResults([]); // Clear search results
     router.push(`/productDetail/${productId}/${category}`);
   };
+  
+
+
 
   return (
     <View style={styles.mainContainer}>

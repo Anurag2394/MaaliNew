@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getSupplierData } from '@/utiles/auth';
 import config from '@/config';
 
 const ProductDetail = () => {
@@ -217,7 +218,7 @@ const ProductDetail = () => {
           <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
           <TouchableOpacity
             style={styles.goToCartButton}
-            onPress={() => router.push('/checkout')}>
+            onPress={() => router.push('/Checkout')}>
             <Text style={styles.goToCartText}>Go to Cart</Text>
           </TouchableOpacity>
         </View>

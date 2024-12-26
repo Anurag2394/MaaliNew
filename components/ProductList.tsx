@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, FlatList, Image, Text, StyleSheet, TouchableOpacity, Modal, Animated, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getSupplierData } from '@/utiles/auth';
 import { Rating } from 'react-native-ratings'; // Import Rating component
 import config from '@/config';
 
@@ -38,7 +39,10 @@ const ProductList = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const productRequestPayload = { tags: queryTags };
+        const suppliers = await getSupplierData();
+        console.log(suppliers, '**************')
+        const ids= suppliers.map(s => s.supplier_id)
+        const productRequestPayload = { tags: [queryTags], supplier_id: ids };
 
         const response = await fetch(`${config.BASE_URL}/productCatalog/getProductsByTags`, {
           method: 'POST',

@@ -29,3 +29,34 @@ export const getAccessToken = async () => {
 export const removeAccessToken = async () => {
   await AsyncStorage.removeItem('access_token'); // Remove user token
 };
+
+
+export const setSupplierData = async (data) => {
+  try {
+    // Store the supplier data as a stringified JSON object
+    await AsyncStorage.setItem('supplierData', JSON.stringify(data));
+  } catch (error) {
+    console.error('Error saving supplier data:', error);
+  }
+};
+
+export const getSupplierData = async () => {
+  try {
+    const data = await AsyncStorage.getItem('supplierData');
+    
+    // Log the retrieved data
+    console.log('Data retrieved from AsyncStorage:', data);
+    
+    if (data !== null) {
+      // Return the parsed data if it exists
+      return JSON.parse(data);
+    } else {
+      console.log('No supplier data found');
+      return null; // Return null if no data is found
+    }
+  } catch (error) {
+    console.error('Error fetching supplier data:', error);
+    return null; // Return null in case of error
+  }
+};
+
