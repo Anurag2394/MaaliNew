@@ -31,6 +31,25 @@ export const removeAccessToken = async () => {
 };
 
 
+export const getUserAddress = async (): Promise<string | null> => {
+  try {
+    const address = await AsyncStorage.getItem('userAddress');
+    return address; // Returns null if the address is not found
+  } catch (error) {
+    console.error('Error getting user address from AsyncStorage:', error);
+    return null;
+  }
+};
+
+export const setUserAddress = async (address: string): Promise<void> => {
+  try {
+    await AsyncStorage.setItem('userAddress', address);
+  } catch (error) {
+    console.error('Error saving user address to AsyncStorage:', error);
+  }
+};
+
+
 export const setSupplierData = async (data) => {
   try {
     // Store the supplier data as a stringified JSON object

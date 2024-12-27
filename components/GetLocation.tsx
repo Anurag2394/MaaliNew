@@ -5,18 +5,20 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import config from '@/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getSupplierData, setSupplierData } from '@/utiles/auth';
+import { getUserAddress, setUserAddress, getSupplierData, setSupplierData } from '@/utiles/auth';
 
 export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(true); // Default to false to hide on first launch
-  const [suppliers, setSuppliers]= useState([]);
+  const [userAddress, setGetUserAddress] = useState<string | null>(null);
+  const [suppliers, setSuppliers] = useState([]);
   const fadeAnim = useState(new Animated.Value(0))[0]; // For fade-in effect
   const isWeb = Constants.platform?.ios === undefined && Constants.platform?.android === undefined;
-// Replace with your OpenCage Geocoding API key
-   const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
+
+  // Replace with your OpenCage Geocoding API key
+  const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
 
   // Function to request location permission
   const requestLocationPermission = async (): Promise<boolean> => {
@@ -28,9 +30,8 @@ export default function GetLocation() {
     return true;
   };
 
-
   // Function to send location data to the backend
-  const getNearbySuppliers = async (latitude: number, longitude: number, region: string ) => {
+  const getNearbySuppliers = async (latitude: number, longitude: number, region: string) => {
     try {
       const response = await fetch(`${config.BASE_URL}/productCatalog/getNearBySuppliers`, {
         method: 'POST',
@@ -38,9 +39,9 @@ export default function GetLocation() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          lat:latitude,
-          long:longitude,
-          region
+          lat: latitude,
+          long: longitude,
+          region,
         }),
       });
 
@@ -50,8 +51,8 @@ export default function GetLocation() {
 
       const data = await response.json();
       setSuppliers(data.results); // Assuming the API returns a list of suppliers
-       await setSupplierData(data.results);
-       setModalVisible(false)
+      await setSupplierData(data.results);
+      setModalVisible(false);
     } catch (error) {
       setErrorMsg('Error fetching nearby suppliers');
     }
@@ -60,77 +61,85 @@ export default function GetLocation() {
   // Function to reverse geocode the location
   const reverseGeocodeLocation = async (latitude: number, longitude: number) => {
     try {
-
       if (isWeb) {
         // Use OpenCage API for reverse geocoding in the browser
         const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`);
         const data = await response.json();
+     
         if (data.results.length > 0) {
           const result = data.results[0];
           const address = `${result.formatted}`;
           setAddress(address);
+          setUserAddress(address)
           const region = result.components.state; // Use the state component as region
           getNearbySuppliers(latitude, longitude, region);
         } else {
           setErrorMsg('Address could not be found');
         }
       } else {
-      const [result] = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (result) {
-        const address = `${result.formattedAddress}`;
-        setAddress(address);
-        getNearbySuppliers(latitude, longitude, result.region)
-
-      } else {
-        setErrorMsg('Address could not be found');
+        const [result] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (result) {
+          const address = `${result.formattedAddress}`;
+          setAddress(address);
+          setUserAddress(address)
+          getNearbySuppliers(latitude, longitude, result.region);
+        } else {
+          setErrorMsg('Address could not be found');
+        }
       }
-    } }catch (error) {
+    } catch (error) {
       setErrorMsg('Error fetching address');
     }
   };
 
   // Function to get current location with high accuracy
-const getLocation = async () => {
-  const hasPermission = await requestLocationPermission();
-  if (hasPermission) {
-    try {
-      if (isWeb) {
-        // For web, use the browser's geolocation API
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            setLocation({ latitude, longitude });
-            await reverseGeocodeLocation(latitude, longitude);
-            setModalVisible(false); // Hide modal after getting location
-          },
-          (error) => {
-            setErrorMsg('Error getting location: ' + error.message);
-          },
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-        );
-      } else {
-        // For native devices, use expo-location
-        const { coords } = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-          timeInterval: 5000,
-          distanceInterval: 1,
-        });
+  const getLocation = async () => {
+    const hasPermission = await requestLocationPermission();
 
-        setLocation({ latitude: coords.latitude, longitude: coords.longitude });
-        await reverseGeocodeLocation(coords.latitude, coords.longitude);
-        setModalVisible(false); // Hide modal after getting location
+    if (hasPermission) {
+     
+      try {
+        if (isWeb) {
+          // For web, use the browser's geolocation API
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const { latitude, longitude } = position.coords;
+              setLocation({ latitude, longitude });
+              await reverseGeocodeLocation(latitude, longitude);
+              await AsyncStorage.setItem('locationModalShown', 'true');
+              setModalVisible(false);
+            },
+            (error) => {
+              setErrorMsg('Error getting location: ' + error.message);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+        } else {
+          // For native devices, use expo-location
+          const { coords } = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 1,
+          });
+
+          setLocation({ latitude: coords.latitude, longitude: coords.longitude });
+          await reverseGeocodeLocation(coords.latitude, coords.longitude);
+          await AsyncStorage.setItem('locationModalShown', 'true');
+          setModalVisible(false);
+        }
+      } catch (error) {
+        setErrorMsg('Error getting location');
       }
-    } catch (error) {
-      setErrorMsg('Error getting location');
     }
-  }
-};
+  };
 
   // Check if the user has already interacted with the modal (granted/denied location permissions)
   const checkModalStatus = async () => {
     const modalStatus = await AsyncStorage.getItem('locationModalShown');
     if (!modalStatus) {
       setModalVisible(true); // Show modal if the user has not interacted with it yet
+    } else {
+      setModalVisible(false);
     }
   };
 
@@ -142,7 +151,15 @@ const getLocation = async () => {
 
   // Fade-in effect for modal
   useEffect(() => {
+    const fetchUserAddress = async () => {
+      const savedAddress = await getUserAddress();
+      console.log('Fetched address from AsyncStorage:', savedAddress); // Debugging output
+      setGetUserAddress(savedAddress); // Update state with the address
+    };
+
+    fetchUserAddress(); // Call the async function to get the address
     checkModalStatus(); // Check if modal should be shown on app load
+
     if (modalVisible) {
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -152,9 +169,9 @@ const getLocation = async () => {
     } else {
       fadeAnim.setValue(0); // Reset opacity when modal is hidden
     }
-  }, [modalVisible]); // Only trigger the fade animation when modalVisible changes
+  }, [modalVisible]); // Only trigger when modalVisible changes
 
-
+  console.log(userAddress || 'No address available'); // Debugging output to see the fetched address
 
   return (
     <View style={styles.container}>
@@ -178,18 +195,20 @@ const getLocation = async () => {
               <Text style={styles.buttonText}>Allow Location</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
+            {/* <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
               <Text style={styles.buttonText}>Close</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </Animated.View>
       </Modal>
 
       {/* Show the address if available */}
-      {address && (
+      {userAddress ? (
         <View style={styles.addressContainer}>
-          <Text style={styles.addressText}>{address}</Text>
+          <Text style={styles.addressText}>{userAddress}</Text>
         </View>
+      ) : (
+        <Text>No saved address</Text>
       )}
     </View>
   );

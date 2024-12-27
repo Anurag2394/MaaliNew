@@ -30,6 +30,7 @@ const ProductList = () => {
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [modalSlideAnim] = useState(new Animated.Value(0)); // For modal sliding animation
   const [fadeOutAnimation] = useState(new Animated.Value(1)); // For fade out of the "Go to Cart" button
+  const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
 
   const { product } = useLocalSearchParams();
   const router = useRouter();
@@ -41,7 +42,7 @@ const ProductList = () => {
       try {
         const suppliers = await getSupplierData();
         console.log(suppliers, '**************')
-        const ids= suppliers.map(s => s.supplier_id)
+        const ids = suppliers.map(s => s.supplier_id);
         const productRequestPayload = { tags: [queryTags], supplier_id: ids };
 
         const response = await fetch(`${config.BASE_URL}/productCatalog/getProductsByTags`, {
@@ -68,10 +69,17 @@ const ProductList = () => {
   // Modify Cart Quantity (increment or decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
     const currentQuantity = cart[product.productId]?.quantity || 1;
+    const availableStock = product.stockQuantity[size] || 0; // Get the stock for the selected size
     let newQuantity = currentQuantity;
 
     if (action === 'increment') {
-      newQuantity += 1;
+      // Prevent incrementing if the quantity exceeds available stock
+      if (newQuantity < availableStock) {
+        newQuantity += 1;
+      } else {
+        setSoldOutMessage('Sold out');
+        return; // Early exit to prevent adding more
+      }
     } else if (action === 'decrement' && currentQuantity > 1) {
       newQuantity -= 1;
     }
@@ -98,6 +106,14 @@ const ProductList = () => {
     const selectedDiscount = 0; // Set discount if needed
 
     const currentQuantity = cart[product.productId]?.quantity || 1;
+    const availableStock = product.stockQuantity[size] || 0; // Get the stock for the selected size
+
+    if (currentQuantity > availableStock) {
+      // If trying to add more than available stock, show "sold out"
+      setSoldOutMessage('Sold out');
+      return; // Stop adding to cart
+    }
+
     const payload = {
       phone_number: 7417422095,  // Make sure to fetch this from user session or state
       product_id: product.productId,
@@ -282,6 +298,8 @@ const ProductList = () => {
                 <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(currentProduct)}>
                   <Text style={styles.addToCartText}>Add to Cart</Text>
                 </TouchableOpacity>
+
+                {soldOutMessage && <Text style={styles.soldOutText}>{soldOutMessage}</Text>} {/* Display Sold out message */}
               </Animated.View>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -385,6 +403,12 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  soldOutText: {
+    color: 'red',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
   },
 });
 
