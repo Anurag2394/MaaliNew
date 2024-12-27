@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Pressable } from 'react-native';
-import config from '@/config';
+import { Image, StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // For search and profile icons
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import GetLocation from '@/components/GetLocation';
 import { getSupplierData } from '@/utiles/auth';
 
@@ -11,85 +11,86 @@ export default function Header() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false); // New state for loading indicator
+  const [isLoading, setIsLoading] = useState(false);
   const [supplierData, setSupplierDataState] = useState(null);
-  const debounceTimeout = useRef(null); // Reference to store the timeout ID
+  const [cartCount, setCartCount] = useState(0); // Track cart count
+  const debounceTimeout = useRef(null); // Reference for debouncing
   const router = useRouter();
-
-
-
 
   useEffect(() => {
     // Fetch supplier data when the component is mounted
     const fetchSupplierData = async () => {
       const data = await getSupplierData();
-      setSupplierDataState(data); // Set the supplier data in state
+      setSupplierDataState(data);
     };
 
-    fetchSupplierData(); // Call the function to fetch data
+    // Fetch cart count from AsyncStorage when the component is mounted
+    const fetchCartCount = async () => {
+      const storedCartItemCount = await AsyncStorage.getItem('cartItemCount');
+      if (storedCartItemCount) {
+        setCartCount(JSON.parse(storedCartItemCount)); // Set the cart count from AsyncStorage
+      }
+    };
+
+    fetchSupplierData();
+    fetchCartCount();
   }, []);
-  
+
   const fetchProducts = async (query) => {
     if (!query) return;
 
-    setIsLoading(true); // Show loading indicator when fetching data
+    setIsLoading(true);
     try {
-      const response = await fetch(`${config.SEARCH_URL}/searchProducts/getMatchingProducts?word=${query}`);
+      const response = await fetch(`{config.SEARCH_URL}/searchProducts/getMatchingProducts?word=${query}`);
       const data = await response.json();
-      console.log('API Response:', data); // Log the response
-      setSearchResults(data.results); // Assuming data.results holds the list of search results
+      setSearchResults(data.results);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
-      setIsLoading(false); // Hide loading indicator after fetch completes
+      setIsLoading(false);
     }
   };
 
   const handleSearchChange = (text) => {
-    console.log('Search Query:', text); // Log the query as the user types
     setSearchQuery(text);
 
-    // Clear the previous timeout
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
 
-    // Set a new timeout
     debounceTimeout.current = setTimeout(() => {
-      fetchProducts(text); // Fetch products after delay
-    }, 1000); // 1000ms delay
+      fetchProducts(text);
+    }, 1000);
   };
 
   const toggleSearchMode = () => {
     setIsSearchMode(!isSearchMode);
     if (isSearchMode) {
-      setSearchQuery(''); // Reset search query when exiting search mode
-      setSearchResults([]); // Clear search results
+      setSearchQuery('');
+      setSearchResults([]);
     }
   };
 
   // Function to handle navigation when an item is clicked
   const handleProductClick = (productId, category) => {
-    // Navigate to product detail page with productId and category
-    setSearchQuery(''); // Reset search query when exiting search mode
+    setSearchQuery('');
     setIsSearchMode(!isSearchMode);
-    setSearchResults([]); // Clear search results
+    setSearchResults([]);
     router.push(`/productDetail/${productId}/${category}`);
   };
-  
-
-
 
   return (
     <View style={styles.mainContainer}>
-     
       <View style={styles.container}>
         {!isSearchMode && (
           <Pressable style={styles.imageSection} onPress={() => router.push('/')}>
-            <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo}  />
-            <Text style={styles.geoLocation}>  <GetLocation /> </Text>
+            <Image source={require('@/assets/images/logo.png')} style={styles.reactLogo} />
+            <Text style={styles.geoLocation}>
+              <GetLocation />
+            </Text>
           </Pressable>
         )}
+
         {isSearchMode && (
           <View style={styles.searchContainer}>
             <TextInput
@@ -103,46 +104,52 @@ export default function Header() {
             </TouchableOpacity>
           </View>
         )}
-        <View style={styles.rightSection}>
-        {!isSearchMode && <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
-          <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
-        </TouchableOpacity>}
 
-        {/* Only show the profile icon when not in search mode */}
-        {!isSearchMode && (
-          <TouchableOpacity onPress={() => router.push('/Checkout')} style={styles.profileIcon}>
-            <AntDesign name="shoppingcart" size={24} color="black" />
-          </TouchableOpacity>
-        )}
+        <View style={styles.rightSection}>
+          {!isSearchMode && (
+            <TouchableOpacity onPress={toggleSearchMode} style={styles.searchIcon}>
+              <Ionicons name={isSearchMode ? 'close' : 'search'} size={24} color="#333" />
+            </TouchableOpacity>
+          )}
+
+          {/* Show the cart icon with a badge */}
+          {!isSearchMode && (
+            <TouchableOpacity onPress={() => router.push('/Checkout')} style={styles.profileIcon}>
+              <AntDesign name="shoppingcart" size={24} color="black" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
-      {
-    isSearchMode && (
-    <ScrollView style={styles.resultList}>
-      {
-        !isLoading && searchResults.length > 0 ? (
-          searchResults.map((item) => (
-            <TouchableOpacity
-              key={item.product_id.toString()}
-              style={styles.resultItem}
-              onPress={() => handleProductClick(item.product_id, item.category)} // On click, navigate
-            >
-              <Image
-                source={{ uri: (JSON.parse(item.imageUrl)[0]).toString().replace('dl=0', 'raw=1') }}
-                style={styles.image}
-                resizeMode="stretch"
-              />
-              <Text style={styles.resultText}>{item.product_name}</Text>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.noResultsText}>No results found</Text>
-        )
-      }
-    </ScrollView>
-  )
-}
 
+      {isSearchMode && (
+        <ScrollView style={styles.resultList}>
+          {!isLoading && searchResults.length > 0 ? (
+            searchResults.map((item) => (
+              <TouchableOpacity
+                key={item.product_id.toString()}
+                style={styles.resultItem}
+                onPress={() => handleProductClick(item.product_id, item.category)}
+              >
+                <Image
+                  source={{
+                    uri: (JSON.parse(item.imageUrl)[0]).toString().replace('dl=0', 'raw=1'),
+                  }}
+                  style={styles.image}
+                  resizeMode="stretch"
+                />
+                <Text style={styles.resultText}>{item.product_name}</Text>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text style={styles.noResultsText}>No results found</Text>
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -154,8 +161,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    elevation: 5, // Add shadow for Android
-    shadowColor: '#000', // Shadow for iOS
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     marginTop: 10,
@@ -171,14 +178,12 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 10,
     marginRight: 10,
-    
   },
   imageSection: {
-   display: 'flex',
-   flexDirection: 'row',
-   alignItems: 'center'
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-
   reactLogo: {
     height: 60,
     width: 50,
@@ -187,20 +192,20 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: '#333',
     fontWeight: '600',
-    flex: 1, // Ensures title takes available space before the search button
+    flex: 1,
     textAlign: 'center',
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%', // Take full width for the search bar
+    width: '100%',
     paddingHorizontal: 15,
   },
   geoLocation: {
     backgroundColor: '#fff',
     width: 250,
     fontSize: 10,
-    marginTop: 0
+    marginTop: 0,
   },
   searchInput: {
     flex: 1,
@@ -227,15 +232,14 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     marginLeft: 10,
+    position: 'relative',
   },
   resultList: {
     marginTop: 10,
     width: '100%',
     backgroundColor: '#fff',
-    marginStart: 0,
     maxHeight: 200,
-    overflow: 'scroll',
-    paddingBottom: 10, // Add padding to prevent results from touching the bottom
+    paddingBottom: 10,
   },
   resultItem: {
     padding: 10,
@@ -243,7 +247,7 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     display: 'flex',
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   resultText: {
     fontSize: 16,
@@ -255,8 +259,20 @@ const styles = StyleSheet.create({
     color: '#777',
     marginTop: 20,
   },
-  loader: {
-    marginTop: 20,
-    alignSelf: 'center', // Center the loader horizontally
+  cartBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: 'red',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cartBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });

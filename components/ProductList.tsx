@@ -11,9 +11,9 @@ type Product = {
   productName: string;
   category: string;
   description: string;
-  price: { Regular: number; Large: number; XL: number };
+  price: {};
   currency: string;
-  stockQuantity: { Regular: number; Large: number; XL: number };
+  quantity: {};
   images: string[]; // Array of image URLs
   ratings: { averageRating: number; numberOfReviews: number }; // Ratings object
   tags: string[];
@@ -41,7 +41,6 @@ const ProductList = () => {
     const fetchProducts = async () => {
       try {
         const suppliers = await getSupplierData();
-        console.log(suppliers, '**************')
         const ids = suppliers.map(s => s.supplier_id);
         const productRequestPayload = { tags: [queryTags], supplier_id: ids };
 
@@ -59,6 +58,7 @@ const ProductList = () => {
           setProducts(parsedProducts);
         }
       } catch (error) {
+        setProducts([]);
         console.error('Failed to fetch products:', error);
       }
     };
@@ -68,8 +68,9 @@ const ProductList = () => {
 
   // Modify Cart Quantity (increment or decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
+    console.log(product, size, '&&&&&')
     const currentQuantity = cart[product.productId]?.quantity || 1;
-    const availableStock = product.stockQuantity[size] || 0; // Get the stock for the selected size
+    const availableStock = product.quantity[size] || 0; // Get the stock for the selected size
     let newQuantity = currentQuantity;
 
     if (action === 'increment') {
@@ -106,7 +107,7 @@ const ProductList = () => {
     const selectedDiscount = 0; // Set discount if needed
 
     const currentQuantity = cart[product.productId]?.quantity || 1;
-    const availableStock = product.stockQuantity[size] || 0; // Get the stock for the selected size
+    const availableStock = product.quantity[size] || 0; // Get the stock for the selected size
 
     if (currentQuantity > availableStock) {
       // If trying to add more than available stock, show "sold out"
@@ -164,8 +165,11 @@ const ProductList = () => {
   };
 
   const openModal = (product: Product) => {
+    console.log(product, 'Product');
     setCurrentProduct(product);
+    const sizes = Object.keys(product.price);
     setIsModalVisible(true);
+    setSelectedSizes((prev) => ({ ...prev, [product.productId]: sizes[0] }));
 
     modalSlideAnim.setValue(0);
 
@@ -204,7 +208,6 @@ const ProductList = () => {
             />
           </TouchableOpacity>
         </View>
-
         <Text style={styles.title}>{item.productName}</Text>
 
         <View style={styles.ratingContainer}>
@@ -230,21 +233,20 @@ const ProductList = () => {
 
   return (
     <View style={{ flex: 1 }}>
-      <FlatList
-        data={products}
-        keyExtractor={(item) => item.productId}
-        renderItem={renderProduct}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-      />
+      {products.length > 0 ? (
+        <FlatList
+          data={products}
+          keyExtractor={(item) => item.productId}
+          renderItem={renderProduct}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+        />
+      ) : (
+        <Text style={styles.noData}>No result Found</Text>
+      )}
 
       {isModalVisible && currentProduct && (
-        <Modal
-          visible={isModalVisible}
-          onRequestClose={closeModal}
-          transparent={true}
-          animationType="fade"
-        >
+        <Modal visible={isModalVisible} onRequestClose={closeModal} transparent={true} animationType="fade">
           <TouchableWithoutFeedback onPress={closeModal}>
             <Animated.View style={[styles.modalContainer, { opacity: fadeOutAnimation }]}>
               <Animated.View
@@ -283,23 +285,39 @@ const ProductList = () => {
                   {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
                 </Text>
 
-                <View style={styles.actionsContainer}>
-                  <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}>
-                    <Text>-</Text>
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}
+                  >
+                    <Text style={styles.quantityText}>-</Text>
                   </TouchableOpacity>
-
-                  <Text>{quantity}</Text>
-
-                  <TouchableOpacity onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'increment')}>
-                    <Text>+</Text>
+                  <Text style={styles.quantityText}>{quantity}</Text>
+                  <TouchableOpacity
+                    style={styles.quantityButton}
+                    onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'increment')}
+                  >
+                    <Text style={styles.quantityText}>+</Text>
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.addToCartButton} onPress={() => handleAddToCart(currentProduct)}>
+               <View style={styles.buttonGroup}> 
+                <TouchableOpacity
+                  style={styles.addToCartButton}
+                  onPress={() => handleAddToCart(currentProduct)}
+                >
                   <Text style={styles.addToCartText}>Add to Cart</Text>
                 </TouchableOpacity>
 
-                {soldOutMessage && <Text style={styles.soldOutText}>{soldOutMessage}</Text>} {/* Display Sold out message */}
+                {soldOutMessage && <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
+
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={closeModal}
+                >
+                  <Text style={styles.closeButtonText}>Close</Text>
+                </TouchableOpacity>
+                </View>
               </Animated.View>
             </Animated.View>
           </TouchableWithoutFeedback>
@@ -317,6 +335,12 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
+  },
+  noData: {
+    display: 'flex',
+    justifyContent: 'center',
+    margin: 100,
+    fontSize: 20,
   },
   image: {
     width: 150,
@@ -344,6 +368,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  buttonGroup: {
+   display: 'flex'
+  },
   rating: {
     marginRight: 5,
   },
@@ -355,7 +382,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     display: 'flex',
     flexDirection: 'row',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
   },
   addToCartButton: {
     backgroundColor: '#28a745',
@@ -370,45 +397,87 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',  // Slightly less opaque background for better visibility
   },
   modalContent: {
     backgroundColor: '#fff',
     padding: 20,
-    borderRadius: 10,
-    width: '80%',
+    borderRadius: 12,
+    width: '50%',  // Reduced width to give a margin on the sides
+    shadowColor: '#000',  // Adding shadow to the modal for a floating effect
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 10 },
+    shadowRadius: 10,
+    elevation: 5,  // For Android shadow effect
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 15,
+    color: '#333',
   },
   sizeContainer: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 20,
+    justifyContent: 'space-between',  // Space out size options evenly
   },
   sizeButton: {
-    padding: 10,
+    padding: 12,
     borderWidth: 1,
-    marginRight: 10,
-    borderRadius: 5,
+    borderRadius: 10,
+    flex: 1,  // Make buttons take equal space
+    margin: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f7f7f7',
   },
   selectedSizeButton: {
     backgroundColor: '#28a745',
-    color: '#fff'
+    borderColor: '#28a745',  // Border color for selected state
   },
   sizeButtonText: {
     fontSize: 16,
+    color: '#333',
   },
   price: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
+    marginLeft: 10,
+    marginBottom: 20,
+    color: '#333',
+  },
+  quantityContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  quantityButton: {
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 10,
+  },
+  quantityText: {
+    fontSize: 18,
+    color: '#333',
   },
   soldOutText: {
     color: 'red',
     fontSize: 16,
     fontWeight: 'bold',
     marginTop: 10,
+  },
+  closeButton: {
+    backgroundColor: '#d9534f',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
