@@ -78,8 +78,8 @@ const CheckoutPage = () => {
   // Handle quantity update
   const handleUpdateQuantity = (itemId, operation, size) => {
     const updatedItems = items.map(item => {
-      if (item.product_id === itemId) {
-        let updatedQuantity = item.quantity;
+      if (item.product_id === itemId && item.size === size) {
+        let updatedQuantity = item.quantity || 0;
 
         if (operation === 'increment') {
           updatedQuantity += 1;
@@ -99,7 +99,10 @@ const CheckoutPage = () => {
     setItems(updatedItems);
 
     // Call updateCartQuantity with the updated size
-    updateCartQuantity(itemId, updatedItems.find(item => item.product_id === itemId).quantity, size);
+    const item = updatedItems.find(item => item.product_id === itemId);
+    const quantity1 = item ? item.quantity : 0;  // Default to 0 if the item is not found
+    
+    updateCartQuantity(itemId, quantity1, size);
   };
 
   // Update the quantity in the backend

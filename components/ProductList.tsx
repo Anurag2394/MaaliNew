@@ -69,7 +69,7 @@ const ProductList = () => {
   // Modify Cart Quantity (increment or decrement)
   const modifyCart = useCallback(async (product: Product, size: string, action: 'increment' | 'decrement') => {
     console.log(product, size, '&&&&&')
-    const currentQuantity = cart[product.productId]?.quantity || 1;
+    const currentQuantity = quantity;
     const availableStock = product.quantity[size] || 0; // Get the stock for the selected size
     let newQuantity = currentQuantity;
 
@@ -169,8 +169,8 @@ const ProductList = () => {
     setCurrentProduct(product);
     const sizes = Object.keys(product.price);
     setIsModalVisible(true);
+    setQuantity(1);
     setSelectedSizes((prev) => ({ ...prev, [product.productId]: sizes[0] }));
-
     modalSlideAnim.setValue(0);
 
     Animated.timing(modalSlideAnim, {
@@ -274,7 +274,15 @@ const ProductList = () => {
                         styles.sizeButton,
                         selectedSizes[currentProduct.productId] === size && styles.selectedSizeButton,
                       ]}
-                      onPress={() => setSelectedSizes((prev) => ({ ...prev, [currentProduct.productId]: size }))}
+                      onPress={() => {
+                        setSelectedSizes((prev) => ({ ...prev, [currentProduct.productId]: size }));
+                        setQuantity(1);
+                        if(currentProduct.quantity[size] === 0) {
+                          setSoldOutMessage('Sold Out')
+                        } else {
+                        setSoldOutMessage(false);
+                        }
+                      }}
                     >
                       <Text style={styles.sizeButtonText}>{size}</Text>
                     </TouchableOpacity>
@@ -285,7 +293,7 @@ const ProductList = () => {
                   {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
                 </Text>
 
-                <View style={styles.quantityContainer}>
+                {!soldOutMessage && <View style={styles.quantityContainer}>
                   <TouchableOpacity
                     style={styles.quantityButton}
                     onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}
@@ -299,17 +307,15 @@ const ProductList = () => {
                   >
                     <Text style={styles.quantityText}>+</Text>
                   </TouchableOpacity>
-                </View>
+                </View>}
 
                <View style={styles.buttonGroup}> 
-                <TouchableOpacity
+                {!soldOutMessage ? <TouchableOpacity
                   style={styles.addToCartButton}
                   onPress={() => handleAddToCart(currentProduct)}
                 >
                   <Text style={styles.addToCartText}>Add to Cart</Text>
-                </TouchableOpacity>
-
-                {soldOutMessage && <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
+                </TouchableOpacity> : <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
 
                 <TouchableOpacity
                   style={styles.closeButton}

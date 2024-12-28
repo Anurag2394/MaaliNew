@@ -19,8 +19,11 @@ const ProductDetail = () => {
   // Fetch product details once
   useEffect(() => {
     const fetchProductDetail = async () => {
+      const suppliers = await getSupplierData();
+      const ids = suppliers.map(s => s.supplier_id);
+      const encodedIds = encodeURIComponent(JSON.stringify(ids));
       try {
-        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${category}`;
+        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${category}&supplier_id=${encodedIds}`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {

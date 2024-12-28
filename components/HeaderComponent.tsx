@@ -5,6 +5,7 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import GetLocation from '@/components/GetLocation';
+import config from '@/config';
 import { getSupplierData } from '@/utiles/auth';
 
 export default function Header() {
@@ -41,7 +42,7 @@ export default function Header() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`{config.SEARCH_URL}/searchProducts/getMatchingProducts?word=${query}`);
+      const response = await fetch(`${config.SEARCH_URL}/searchProducts/getMatchingProducts?word=${query}`);
       const data = await response.json();
       setSearchResults(data.results);
     } catch (error) {
