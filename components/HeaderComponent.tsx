@@ -18,6 +18,9 @@ export default function Header() {
   const debounceTimeout = useRef(null); // Reference for debouncing
   const router = useRouter();
 
+  // Ref to store the previous cartCount value
+  const prevCartCountRef = useRef();
+
   useEffect(() => {
     // Fetch supplier data when the component is mounted
     const fetchSupplierData = async () => {
@@ -71,6 +74,33 @@ export default function Header() {
       setSearchResults([]);
     }
   };
+
+  useEffect(() => {
+    // Update AsyncStorage whenever cartCount changes
+    const updateCartCountInAsyncStorage = async () => {
+      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartCount));
+    };
+
+    updateCartCountInAsyncStorage();
+  }, [cartCount]); // Run this effect when cartCount changes
+
+  useEffect(() => {
+    if (prevCartCountRef.current !== undefined) {
+      if (cartCount > prevCartCountRef.current) {
+        console.log('Cart item count has increased!', cartCount);
+        const fetchCartCount = async () => {
+          const storedCartItemCount = await AsyncStorage.getItem('cartItemCount');
+          if (storedCartItemCount) {
+            setCartCount(JSON.parse(storedCartItemCount)); // Set the cart count from AsyncStorage
+          }
+        };
+        fetchCartCount();
+      }
+    }
+
+    // Update the ref to store the current cartCount for the next render
+    prevCartCountRef.current = cartCount;
+  }, [cartCount]);
 
   // Function to handle navigation when an item is clicked
   const handleProductClick = (productId, category) => {

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, FlatList, Image, Text, StyleSheet, TouchableOpacity, Modal, Animated, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getSupplierData } from '@/utiles/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Rating } from 'react-native-ratings'; // Import Rating component
 import config from '@/config';
 
@@ -100,6 +101,37 @@ const ProductList = () => {
     setQuantity(newQuantity);
   }, [cart, selectedSizes]);
 
+
+  const fetchCartItemCount = async (phoneNumber: string) => {
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/getCartItemCount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_number: phoneNumber,  // Send phone_number in the request body
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart item count');
+      }
+  
+      const data = await response.json();
+      const cartItemCount = data.results || 0;
+  
+      // Store the cart item count in AsyncStorage
+      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
+  
+      return cartItemCount;
+    } catch (error) {
+      console.error('Error fetching cart item count:', error);
+      return 0;  // Return 0 in case of an error
+    }
+  };
+
+
   // Handle Add to Cart Action
   const handleAddToCart = async (product: Product) => {
     const size = selectedSizes[product.productId] || 'Regular';
@@ -136,6 +168,7 @@ const ProductList = () => {
       const data = await response.json();
 
       if (response.ok) {
+        await fetchCartItemCount('7417422095')
         setCart((prevCart) => ({
           ...prevCart,
           [product.productId]: {
@@ -156,6 +189,8 @@ const ProductList = () => {
         setTimeout(() => {
           setIsModalVisible(false);
         }, 300);
+
+        
       } else {
         console.error('Error adding item to cart:', data.message || 'Unknown error');
       }
@@ -488,3 +523,7 @@ const styles = StyleSheet.create({
 });
 
 export default ProductList;
+function getCartItemCountFromStorage() {
+  throw new Error('Function not implemented.');
+}
+

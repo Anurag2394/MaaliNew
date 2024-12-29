@@ -15,6 +15,8 @@ const ProductDetail = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isItemAdded, setIsItemAdded] = useState(false);
+  const [careInstructions, setCareInstructions] = useState({});
+  const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
 
   // Fetch product details once
   useEffect(() => {
@@ -49,7 +51,7 @@ const ProductDetail = () => {
           }
 
           // Ensure all images exist for the selected unit
-          if (productData.images &&  typeof productData.images === 'object') {
+          if (productData.images && typeof productData.images === 'object') {
             setProduct(productData);
           } else {
             throw new Error('Product images are missing or empty for the selected unit');
@@ -191,9 +193,20 @@ const ProductDetail = () => {
             <TouchableOpacity
               key={unit}
               style={[styles.sizeButton, selectedUnit === unit && styles.selectedSizeButton]}
-              onPress={() => setSelectedUnit(unit)}>
+              onPress={() => {
+                setSelectedUnit(unit);
+                setQuantity(1);
+                if (product.quantity[unit] === 0) {
+                  setSoldOutMessage('Sold Out')
+                } else {
+                  setSoldOutMessage(false);
+                }
+              }
+              }
+
+            >
               <Text style={styles.sizeButtonText}>
-                {unit} ({availableStock} available)
+                {unit}
               </Text>
             </TouchableOpacity>
           );
@@ -212,9 +225,9 @@ const ProductDetail = () => {
       </View>
 
       {/* Add to Cart Button */}
-      <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+      {!soldOutMessage ? <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
         <Text style={styles.addToCartText}>Add to Cart</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> : <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
 
       {isItemAdded && (
         <View style={styles.itemAddedText}>
@@ -226,6 +239,30 @@ const ProductDetail = () => {
           </TouchableOpacity>
         </View>
       )}
+
+      {isItemAdded && (
+        <View style={styles.itemAddedText}>
+          <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
+          <TouchableOpacity
+            style={styles.goToCartButton}
+            onPress={() => router.push('/Checkout')}>
+            <Text style={styles.goToCartText}>Go to Cart</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.careInstructionContainer}>
+        <Text style={styles.careInstructionHeader}>Care Instructions</Text>
+        {Object.keys(product.instructions).map((item, index) => {
+          return (
+            <View key={index} style={styles.careInstructionItem}>
+              <Text style={styles.careInstructionLabel}>{item}:</Text>
+              <Text style={styles.careInstructionText}>{product.instructions[item]}</Text>
+            </View>
+          );
+        })}
+      </View>
+
     </ScrollView>
   );
 };
@@ -237,6 +274,12 @@ const styles = StyleSheet.create({
   },
   imageSlider: {
     marginBottom: 16,
+  },
+  soldOutText: {
+    color: 'red',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 10,
   },
   mainImage: {
     width: '100%',
@@ -335,6 +378,37 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
   },
+  careInstructionContainer: {
+    marginVertical: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  careInstructionHeader: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 12,
+  },
+  careInstructionItem: {
+    marginBottom: 10,
+  },
+  careInstructionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#555',
+  },
+  careInstructionText: {
+    fontSize: 14,
+    color: '#777',
+    marginTop: 4,
+    lineHeight: 20,
+  },
 });
+
+
 
 export default ProductDetail;
