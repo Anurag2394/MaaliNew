@@ -75,12 +75,16 @@ const ProductDetail = () => {
     if (product) {
       try {
         const selectedDiscount = 0;
+        const suppliers = await getSupplierData();
+        const ids = suppliers.map(s => s.supplier_id);
         const cartItem = {
           phone_number: 7417422095, // Fetch this from user session or state
           product_id: product.productId,
           quantity: quantity,
           price: product.price[selectedUnit],
           discount: selectedDiscount,
+          quantityMap: product.quantity_map,
+          supplierData: ids,
           size: selectedUnit,
         };
 

@@ -18,6 +18,7 @@ type Product = {
   images: string[]; // Array of image URLs
   ratings: { averageRating: number; numberOfReviews: number }; // Ratings object
   tags: string[];
+  quantity_map: {};
   dateAdded: string;
   careInstructions: { watering: string; light: string; fertilizing: string };
 };
@@ -147,12 +148,17 @@ const ProductList = () => {
       return; // Stop adding to cart
     }
 
+     const suppliers = await getSupplierData();
+          const ids = suppliers.map(s => s.supplier_id);
+
     const payload = {
       phone_number: 7417422095,  // Make sure to fetch this from user session or state
       product_id: product.productId,
       quantity: currentQuantity,
       price: selectedPrice,
       discount: selectedDiscount,
+      quantityMap: product.quantity_map,
+      supplierData: ids,
       size: size
     };
 
