@@ -40,6 +40,25 @@ export default function Header() {
     fetchCartCount();
   }, []);
 
+  // Add an effect to listen for changes in the cart count stored in AsyncStorage
+  useEffect(() => {
+    const updateCartCount = async () => {
+      const storedCartItemCount = await AsyncStorage.getItem('cartItemCount');
+      if (storedCartItemCount) {
+        setCartCount(JSON.parse(storedCartItemCount)); // Update cart count state
+      }
+    };
+
+    // Listen for changes in cart count and update
+    const intervalId = setInterval(() => {
+      updateCartCount();
+    }, 1000); // Update every 1 second (or use other interval as needed)
+
+    return () => {
+      clearInterval(intervalId); // Cleanup the interval when the component is unmounted
+    };
+  }, []); // This effect will run once when the component is mounted
+
   const fetchProducts = async (query) => {
     if (!query) return;
 
@@ -75,34 +94,6 @@ export default function Header() {
     }
   };
 
-  useEffect(() => {
-    // Update AsyncStorage whenever cartCount changes
-    const updateCartCountInAsyncStorage = async () => {
-      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartCount));
-    };
-
-    updateCartCountInAsyncStorage();
-  }, [cartCount]); // Run this effect when cartCount changes
-
-  useEffect(() => {
-    if (prevCartCountRef.current !== undefined) {
-      if (cartCount > prevCartCountRef.current) {
-        console.log('Cart item count has increased!', cartCount);
-        const fetchCartCount = async () => {
-          const storedCartItemCount = await AsyncStorage.getItem('cartItemCount');
-          if (storedCartItemCount) {
-            setCartCount(JSON.parse(storedCartItemCount)); // Set the cart count from AsyncStorage
-          }
-        };
-        fetchCartCount();
-      }
-    }
-
-    // Update the ref to store the current cartCount for the next render
-    prevCartCountRef.current = cartCount;
-  }, [cartCount]);
-
-  // Function to handle navigation when an item is clicked
   const handleProductClick = (productId, category) => {
     setSearchQuery('');
     setIsSearchMode(!isSearchMode);

@@ -149,7 +149,6 @@ const ProductList = () => {
     }
 
      const suppliers = await getSupplierData();
-          const ids = suppliers.map(s => s.supplier_id);
 
     const payload = {
       phone_number: 7417422095,  // Make sure to fetch this from user session or state
@@ -158,7 +157,7 @@ const ProductList = () => {
       price: selectedPrice,
       discount: selectedDiscount,
       quantityMap: product.quantity_map,
-      supplierData: ids,
+      supplierData: suppliers,
       size: size
     };
 
@@ -173,7 +172,7 @@ const ProductList = () => {
 
       const data = await response.json();
 
-      if (response.ok) {
+      if (data.status === 200) {
         await fetchCartItemCount('7417422095')
         setCart((prevCart) => ({
           ...prevCart,
