@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     elevation: 5,

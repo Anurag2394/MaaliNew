@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getSupplierData } from '@/utiles/auth';
 import config from '@/config';
@@ -70,6 +71,36 @@ const ProductDetail = () => {
     }
   }, [validProductId]); // Dependency on selectedUnit to change images when unit changes
 
+
+  const fetchCartItemCount = async (phoneNumber: string) => {
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/getCartItemCount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_number: phoneNumber,  // Send phone_number in the request body
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart item count');
+      }
+  
+      const data = await response.json();
+      const cartItemCount = data.results || 0;
+  
+      // Store the cart item count in AsyncStorage
+      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
+  
+      return cartItemCount;
+    } catch (error) {
+      console.error('Error fetching cart item count:', error);
+      return 0;  // Return 0 in case of an error
+    }
+  };
+
   // Handle Add to Cart
   const handleAddToCart = useCallback(async () => {
     if (product) {
@@ -96,7 +127,8 @@ const ProductDetail = () => {
         });
 
         const data = await response.json();
-        if (data.success) {
+        if (data.status === 200) {
+          await fetchCartItemCount('7417422095')
           setIsItemAdded(true);
         } else {
           Alert.alert('Error', 'Failed to add item to cart.');
@@ -232,18 +264,9 @@ const ProductDetail = () => {
         <Text style={styles.addToCartText}>Add to Cart</Text>
       </TouchableOpacity> : <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
 
-      {isItemAdded && (
-        <View style={styles.itemAddedText}>
-          <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
-          <TouchableOpacity
-            style={styles.goToCartButton}
-            onPress={() => router.push('/Checkout')}>
-            <Text style={styles.goToCartText}>Go to Cart</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
-      {isItemAdded && (
+
+      {/* {isItemAdded && (
         <View style={styles.itemAddedText}>
           <Text style={styles.itemAddedMessage}>Item added to cart!</Text>
           <TouchableOpacity
@@ -252,7 +275,7 @@ const ProductDetail = () => {
             <Text style={styles.goToCartText}>Go to Cart</Text>
           </TouchableOpacity>
         </View>
-      )}
+      )} */}
 
       <View style={styles.careInstructionContainer}>
         <Text style={styles.careInstructionHeader}>Care Instructions</Text>

@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import * as Location from 'expo-location';
-import { Ionicons } from '@expo/vector-icons'; 
+import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import config from '@/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import config from '@/config';
 import { getUserAddress, setUserAddress, getSupplierData, setSupplierData } from '@/utiles/auth';
 
 export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [modalVisible, setModalVisible] = useState<boolean>(true); // Default to false to hide on first launch
+  const [modalVisible, setModalVisible] = useState<boolean>(false); // Set modal to hidden by default
   const [userAddress, setGetUserAddress] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState([]);
   const fadeAnim = useState(new Animated.Value(0))[0]; // For fade-in effect
+
+  const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; // API key for OpenCage Geocoding
   const isWeb = Constants.platform?.ios === undefined && Constants.platform?.android === undefined;
 
-  // Replace with your OpenCage Geocoding API key
-  const OPEN_CAGE_API_KEY = '174ea5a27c68446aba60e697d724daa4'; 
-
-  // Function to request location permission
+  // Request location permission from the user
   const requestLocationPermission = async (): Promise<boolean> => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -30,7 +29,7 @@ export default function GetLocation() {
     return true;
   };
 
-  // Function to send location data to the backend
+  // Send location data to the backend to fetch nearby suppliers
   const getNearbySuppliers = async (latitude: number, longitude: number, region: string) => {
     try {
       const response = await fetch(`${config.BASE_URL}/productCatalog/getNearBySuppliers`, {
@@ -50,28 +49,26 @@ export default function GetLocation() {
       }
 
       const data = await response.json();
-      setSuppliers(data.results); // Assuming the API returns a list of suppliers
-      await setSupplierData(data.results);
-      setModalVisible(false);
+      setSuppliers(data.results);
+      await setSupplierData(data.results); // Save the fetched suppliers in storage
+      setModalVisible(false); // Hide the modal after data is fetched
     } catch (error) {
       setErrorMsg('Error fetching nearby suppliers');
     }
   };
 
-  // Function to reverse geocode the location
+  // Reverse geocode location (get address from latitude and longitude)
   const reverseGeocodeLocation = async (latitude: number, longitude: number) => {
     try {
       if (isWeb) {
-        // Use OpenCage API for reverse geocoding in the browser
         const response = await fetch(`https://api.opencagedata.com/geocode/v1/json?q=${latitude}+${longitude}&key=${OPEN_CAGE_API_KEY}`);
         const data = await response.json();
-     
         if (data.results.length > 0) {
           const result = data.results[0];
           const address = `${result.formatted}`;
           setAddress(address);
-          setUserAddress(address)
-          const region = result.components.state; // Use the state component as region
+          setUserAddress(address);
+          const region = result.components.state;
           getNearbySuppliers(latitude, longitude, region);
         } else {
           setErrorMsg('Address could not be found');
@@ -81,7 +78,7 @@ export default function GetLocation() {
         if (result) {
           const address = `${result.formattedAddress}`;
           setAddress(address);
-          setUserAddress(address)
+          setUserAddress(address);
           getNearbySuppliers(latitude, longitude, result.region);
         } else {
           setErrorMsg('Address could not be found');
@@ -92,22 +89,19 @@ export default function GetLocation() {
     }
   };
 
-  // Function to get current location with high accuracy
+  // Fetch current location using Expo Location API
   const getLocation = async () => {
     const hasPermission = await requestLocationPermission();
-
     if (hasPermission) {
-     
       try {
         if (isWeb) {
-          // For web, use the browser's geolocation API
           navigator.geolocation.getCurrentPosition(
             async (position) => {
               const { latitude, longitude } = position.coords;
               setLocation({ latitude, longitude });
               await reverseGeocodeLocation(latitude, longitude);
               await AsyncStorage.setItem('locationModalShown', 'true');
-              setModalVisible(false);
+              setModalVisible(false); // Close the modal once location is fetched
             },
             (error) => {
               setErrorMsg('Error getting location: ' + error.message);
@@ -115,7 +109,6 @@ export default function GetLocation() {
             { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
           );
         } else {
-          // For native devices, use expo-location
           const { coords } = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.High,
             timeInterval: 5000,
@@ -125,7 +118,7 @@ export default function GetLocation() {
           setLocation({ latitude: coords.latitude, longitude: coords.longitude });
           await reverseGeocodeLocation(coords.latitude, coords.longitude);
           await AsyncStorage.setItem('locationModalShown', 'true');
-          setModalVisible(false);
+          setModalVisible(false); // Close the modal once location is fetched
         }
       } catch (error) {
         setErrorMsg('Error getting location');
@@ -133,32 +126,29 @@ export default function GetLocation() {
     }
   };
 
-  // Check if the user has already interacted with the modal (granted/denied location permissions)
+  // Check if the user has already interacted with the location modal
   const checkModalStatus = async () => {
     const modalStatus = await AsyncStorage.getItem('locationModalShown');
     if (!modalStatus) {
-      setModalVisible(true); // Show modal if the user has not interacted with it yet
-    } else {
-      setModalVisible(false);
+      setModalVisible(true); // Show modal if not interacted before
     }
   };
 
-  // Set modal as closed in AsyncStorage when the user closes it
+  // Close modal and set it in AsyncStorage when closed
   const handleCloseModal = async () => {
     await AsyncStorage.setItem('locationModalShown', 'true');
     setModalVisible(false);
   };
 
-  // Fade-in effect for modal
+  // Fade-in animation for modal
   useEffect(() => {
     const fetchUserAddress = async () => {
       const savedAddress = await getUserAddress();
-      console.log('Fetched address from AsyncStorage:', savedAddress); // Debugging output
-      setGetUserAddress(savedAddress); // Update state with the address
+      setGetUserAddress(savedAddress);
     };
 
-    fetchUserAddress(); // Call the async function to get the address
-    checkModalStatus(); // Check if modal should be shown on app load
+    fetchUserAddress();
+    checkModalStatus(); // Check the status of the modal on app load
 
     if (modalVisible) {
       Animated.timing(fadeAnim, {
@@ -169,18 +159,15 @@ export default function GetLocation() {
     } else {
       fadeAnim.setValue(0); // Reset opacity when modal is hidden
     }
-  }, [modalVisible]); // Only trigger when modalVisible changes
-
-  console.log(userAddress || 'No address available'); // Debugging output to see the fetched address
+  }, [modalVisible]); // Trigger when modal visibility changes
 
   return (
     <View style={styles.container}>
-      {/* Modal for requesting location */}
       <Modal
         animationType="fade"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={handleCloseModal} // Close modal on back press
+        onRequestClose={handleCloseModal}
       >
         <Animated.View style={[styles.modalOverlay, { opacity: fadeAnim }]}>
           <View style={styles.modalContent}>
@@ -194,15 +181,10 @@ export default function GetLocation() {
             <TouchableOpacity onPress={getLocation} style={styles.getLocationButton}>
               <Text style={styles.buttonText}>Allow Location</Text>
             </TouchableOpacity>
-
-            {/* <TouchableOpacity onPress={handleCloseModal} style={styles.closeButton}>
-              <Text style={styles.buttonText}>Close</Text>
-            </TouchableOpacity> */}
           </View>
         </Animated.View>
       </Modal>
 
-      {/* Show the address if available */}
       {userAddress ? (
         <View style={styles.addressContainer}>
           <Text style={styles.addressText}>{userAddress}</Text>
@@ -219,16 +201,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f7f7f7', // Light grey background
+    backgroundColor: '#f7f7f7',
   },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Darker overlay for modal
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#4C6E91', // Professional blue background
+    backgroundColor: '#4C6E91',
     padding: 40,
     borderRadius: 25,
     alignItems: 'center',
@@ -237,7 +219,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 15 },
     shadowOpacity: 0.3,
     shadowRadius: 15,
-    elevation: 10, // Floating effect on Android
+    elevation: 10,
     justifyContent: 'center',
   },
   modalTitle: {
@@ -248,7 +230,7 @@ const styles = StyleSheet.create({
   },
   modalMessage: {
     fontSize: 18,
-    color: '#e0e0e0', // Light grey for message
+    color: '#e0e0e0',
     marginVertical: 20,
     textAlign: 'center',
     lineHeight: 24,
@@ -260,29 +242,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   getLocationButton: {
-    backgroundColor: '#5E81AC', // Softer blue button
+    backgroundColor: '#5E81AC',
     paddingVertical: 16,
     paddingHorizontal: 60,
     borderRadius: 40,
     marginVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 5, // Adds shadow to the button
-  },
-  closeButton: {
-    backgroundColor: '#FF7043', // Red button to close
-    paddingVertical: 16,
-    paddingHorizontal: 60,
-    borderRadius: 40,
-    marginTop: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 5, // Adds shadow to the button
-  },
-  buttonText: {
-    fontSize: 18,
-    color: '#ffffff',
-    fontWeight: '600',
+    elevation: 5,
   },
   addressContainer: {
     marginTop: 0,
@@ -296,3 +263,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

@@ -58,10 +58,17 @@ export default function RootLayout() {
   useEffect(() => {
     const checkLoginStatus = async () => {
       const userSession = await getToken(); // Check user login status (can also include logic to get phone_number from session)
+      console.log(userSession, 'User session');
+
       setIsLoggedIn(!!userSession); // Update login status
       if (userSession) {
         setPhoneNumber(userSession.phoneNumber || '7417422095'); // Replace with phoneNumber if part of session
+      } else {
+        setPhoneNumber(''); // Clear phone number if no session
       }
+
+      // Hide splash screen after fonts and login check is complete
+      SplashScreen.hideAsync();
     };
 
     if (loaded) {
@@ -106,8 +113,6 @@ export default function RootLayout() {
       </PaperProvider>
     );
   }
-
-  console.log(loaded, isLoggedIn,'lo')
 
   return (
     <PaperProvider>
