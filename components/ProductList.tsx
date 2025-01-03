@@ -11,6 +11,7 @@ type Product = {
   productId: string;
   productName: string;
   category: string;
+  subCategory: string;
   description: string;
   price: {};
   currency: string;
@@ -234,7 +235,7 @@ const ProductList = () => {
 
   const renderProduct = ({ item }: { item: Product }) => {
     const navigateToProductDetail = () => {
-      router.push(`/productDetail/${item.productId}/${item.category}`);
+      router.push(`/productDetail/${item.productId}/${item.category}/${item.subCategory}`);
     };
 
     return (

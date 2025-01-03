@@ -94,11 +94,11 @@ export default function Header() {
     }
   };
 
-  const handleProductClick = (productId, category) => {
+  const handleProductClick = (productId, category, subCategory) => {
     setSearchQuery('');
     setIsSearchMode(!isSearchMode);
     setSearchResults([]);
-    router.push(`/productDetail/${productId}/${category}`);
+    router.push(`/productDetail/${productId}/${category}/${subCategory}`);
   };
 
   return (
@@ -155,7 +155,7 @@ export default function Header() {
               <TouchableOpacity
                 key={item.product_id.toString()}
                 style={styles.resultItem}
-                onPress={() => handleProductClick(item.product_id, item.category)}
+                onPress={() => handleProductClick(item.product_id, item.category, item.subCategory)}
               >
                 <Image
                   source={{
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#ffffff',
     elevation: 5,

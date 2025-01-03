@@ -8,6 +8,7 @@ import config from '@/config';
 const ProductDetail = () => {
   const { productId } = useLocalSearchParams();
   const { category } = useLocalSearchParams();
+  const { subCategory } = useLocalSearchParams();
   const router = useRouter();
 
   const validProductId = productId || 'PLT-SUC-SNKP';
@@ -26,7 +27,7 @@ const ProductDetail = () => {
       const ids = suppliers.map(s => s.supplier_id);
       const encodedIds = encodeURIComponent(JSON.stringify(ids));
       try {
-        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${category}&supplier_id=${encodedIds}`;
+        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${subCategory}&subcategory=${category}&supplier_id=${encodedIds}`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {
