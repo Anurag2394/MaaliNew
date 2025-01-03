@@ -27,7 +27,7 @@ const ProductDetail = () => {
       const ids = suppliers.map(s => s.supplier_id);
       const encodedIds = encodeURIComponent(JSON.stringify(ids));
       try {
-        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${subCategory}&subcategory=${category}&supplier_id=${encodedIds}`;
+        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${subCategory}&sub_category=${category}&supplier_id=${encodedIds}`;
         const response = await fetch(url, {
           method: 'GET',
           headers: {
@@ -63,7 +63,7 @@ const ProductDetail = () => {
         }
       } catch (error) {
         console.error('Failed to fetch product details:', error);
-        Alert.alert('Error', 'Failed to load product details.');
+        Alert.alert('Error', 'No Product Found.');
       }
     };
 

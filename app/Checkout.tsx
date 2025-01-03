@@ -13,6 +13,8 @@ const CheckoutPage = () => {
   });
   const [subtotal, setSubtotal] = useState(0); // To store subtotal fetched from API
   const [loading, setLoading] = useState(false);
+  const [soldOut, setSoldOut] = useState('')
+  const [soldOutSize, setSoldOutSize] = useState('')
 
   const fetchCartDetails = async () => {
     try {
@@ -145,8 +147,9 @@ const CheckoutPage = () => {
     })
       .then(response => response.json())
       .then(data => {
-        if (data.status !== 200) {
-          Alert.alert('Error', 'Failed to update item quantity.');
+        if (data.status === 507) {
+          setSoldOut(itemId)
+          setSoldOutSize(size)
         } else {
            fetchCartItemCount('7417422095');
         }
@@ -208,7 +211,7 @@ const CheckoutPage = () => {
                   <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                 </View>
               </View>
-              <View style={styles.quantityContainer}>
+              {soldOut === item.product_id && soldOutSize === item.size ? <View style={styles.soldout}>Sold Out</View> : <View style={styles.quantityContainer}>
                 <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
                   <Text style={styles.quantityButton}>-</Text>
                 </TouchableOpacity>
@@ -216,7 +219,7 @@ const CheckoutPage = () => {
                 <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
                   <Text style={styles.quantityButton}>+</Text>
                 </TouchableOpacity>
-              </View>
+              </View> }
             </View>
           ))
         )}
@@ -264,6 +267,9 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 20,
+  },
+  soldout: {
+    color: 'red'
   },
   sectionHeader: {
     fontSize: 18,
