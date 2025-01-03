@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '@/config';
-import { getUserAddress, setUserAddress, getSupplierData, setSupplierData } from '@/utiles/auth';
+import { getUserAddress, setUserAddress, getSupplierData, setSupplierData,  } from '@/utiles/auth';
 
 export default function GetLocation() {
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
@@ -27,6 +27,35 @@ export default function GetLocation() {
       return false;
     }
     return true;
+  };
+
+  const fetchCartItemCount = async (phoneNumber: string) => {
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/getCartItemCount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_number: phoneNumber,  // Send phone_number in the request body
+        }),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart item count');
+      }
+  
+      const data = await response.json();
+      const cartItemCount = data.results || 0;
+  
+      // Store the cart item count in AsyncStorage
+      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
+  
+      return cartItemCount;
+    } catch (error) {
+      console.error('Error fetching cart item count:', error);
+      return 0;  // Return 0 in case of an error
+    }
   };
 
   // Send location data to the backend to fetch nearby suppliers
@@ -70,6 +99,7 @@ export default function GetLocation() {
           setUserAddress(address);
           const region = result.components.state;
           getNearbySuppliers(latitude, longitude, region);
+          await fetchCartItemCount('7417422095')
         } else {
           setErrorMsg('Address could not be found');
         }
@@ -80,6 +110,7 @@ export default function GetLocation() {
           setAddress(address);
           setUserAddress(address);
           getNearbySuppliers(latitude, longitude, result.region);
+          await fetchCartItemCount('7417422095')
         } else {
           setErrorMsg('Address could not be found');
         }

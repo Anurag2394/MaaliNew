@@ -148,6 +148,11 @@ const ProductDetail = () => {
       if (quantity < availableStock) {
         setQuantity((prev) => prev + 1);
       } else {
+        if(availableStock === 0) {
+          setSoldOutMessage('Sold Out')
+        }  else {
+          setSoldOutMessage('');
+        }
         Alert.alert('Maximum stock reached', `Only ${availableStock} items available in ${selectedUnit} unit.`);
       }
     }
@@ -225,6 +230,7 @@ const ProductDetail = () => {
       <View style={styles.sizeContainer}>
         {Object.keys(product.price).map((unit) => {
           const availableStock = product.quantity[unit];
+          
           return (
             <TouchableOpacity
               key={unit}
