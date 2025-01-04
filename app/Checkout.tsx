@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScrollView, View, Text, TextInput, Alert, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import config from '@/config';
 
@@ -17,6 +18,7 @@ const CheckoutPage = () => {
   const [soldOutSize, setSoldOutSize] = useState('');
   const [insufficentStock, setInsufficentStock] = useState({ itemId: null, size: null });
   const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
+   const router = useRouter();
 
   const fetchCartDetails = async () => {
     try {
@@ -130,7 +132,7 @@ const CheckoutPage = () => {
     setItems(updatedItems);
 
     console.log(updatedItems, 'gjjgj')
- 
+
     const item = updatedItems.find(item => (item.product_id === itemId && item.size === size));
 
     console.log(item, 'jjj')
@@ -173,7 +175,7 @@ const CheckoutPage = () => {
     fetch(`${config.CART_URL}/cart/removeItemFromCart`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, size:size, soft_delete: 1 }),
+      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, size: size, soft_delete: 1 }),
     })
       .then(response => response.json())
       .then(data => {
@@ -211,7 +213,11 @@ const CheckoutPage = () => {
         ) : (
           items.map(item => (
             <View style={styles.itemContainer} key={`${item.product_id}-${item.size}`}>
-              <View style={styles.item}>
+              {/* Wrap the item in TouchableOpacity to handle navigation */}
+              <TouchableOpacity
+                onPress={() => router.push(`/productDetail/${item.product_id}/${item.category}/${item.sub_category}`)}
+                style={styles.item} // You can style this TouchableOpacity as needed
+              >
                 <Image
                   source={{ uri: item.image_url.replace('dl=0', 'raw=1') }}
                   style={styles.itemImage}
@@ -221,28 +227,30 @@ const CheckoutPage = () => {
                   <Text style={styles.itemSize}>Size: {item.size}</Text>
                   <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                 </View>
-              </View>
-              {item.available_quantity === 0  ? (
+              </TouchableOpacity>
+
+              {/* Sold Out message */}
+              {item.available_quantity === 0 ? (
                 <View style={styles.soldout}>Sold Out</View>
               ) : (
                 <View style={styles.stockContainer}>
-                <View style={styles.quantityContainer}>
-                  <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
-                    <Text style={styles.quantityButton}>-</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.quantityText}>{item.quantity >= item.available_quantity ? item.available_quantity : item.quantity}</Text>
-                  <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
-                    <Text style={styles.quantityButton}>+</Text>
-                  </TouchableOpacity>
+                  <View style={styles.quantityContainer}>
+                    <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
+                      <Text style={styles.quantityButton}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.quantityText}>{item.quantity >= item.available_quantity ? item.available_quantity : item.quantity}</Text>
+                    <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
+                      <Text style={styles.quantityButton}>+</Text>
+                    </TouchableOpacity>
                   </View>
-                  { item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{item.available_quantity}</b></Text>}
+                  {item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{item.available_quantity}</b></Text>}
                 </View>
-
               )}
             </View>
           ))
         )}
       </View>
+
 
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>Shipping Details</Text>
@@ -348,8 +356,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   stockContainer: {
-   flexDirection: 'column',
-   width:100
+    flexDirection: 'column',
+    width: 100
   },
   quantityButton: {
     fontSize: 20,
@@ -418,7 +426,7 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: 12,
     marginTop: 5,
-  },  
+  },
 });
 
 export default CheckoutPage;
