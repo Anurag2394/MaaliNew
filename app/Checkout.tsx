@@ -113,7 +113,7 @@ const CheckoutPage = () => {
       if (item.product_id === itemId && item.size === size) {
         let updatedQuantity = item.quantity || 0;
 
-        if (operation === 'increment') {
+        if (operation === 'increment' && updatedQuantity < item.available_quantity) {
           updatedQuantity += 1;
         } else if (operation === 'decrement' && updatedQuantity > 1) {
           updatedQuantity -= 1;
@@ -129,8 +129,13 @@ const CheckoutPage = () => {
 
     setItems(updatedItems);
 
-    const item = updatedItems.find(item => item.product_id === itemId);
+    console.log(updatedItems, 'gjjgj')
+ 
+    const item = updatedItems.find(item => (item.product_id === itemId && item.size === size));
+
+    console.log(item, 'jjj')
     const quantity1 = item ? item.quantity : 0;
+
 
     updateCartQuantity(itemId, quantity1, size);
   };

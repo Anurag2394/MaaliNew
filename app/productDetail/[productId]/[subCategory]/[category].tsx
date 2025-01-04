@@ -19,53 +19,56 @@ const ProductDetail = () => {
   const [isItemAdded, setIsItemAdded] = useState(false);
   const [careInstructions, setCareInstructions] = useState({});
   const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
+  const [insufficientStock, setInsufficientStock] = useState(false)
+
+
+  const fetchProductDetail = async () => {
+    const suppliers = await getSupplierData();
+    const ids = suppliers.map(s => s.supplier_id);
+    const encodedIds = encodeURIComponent(JSON.stringify(ids));
+    try {
+      const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${subCategory}&sub_category=${category}&supplier_id=${encodedIds}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const dataJS = await response.json();
+      const parsedResults = dataJS.results;
+
+      if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+        const productData = parsedResults[0];
+        const keys = Object.keys(productData.quantity);
+        setSelectedUnit(keys[0]); // Set default unit to the first one
+
+        // Ensure images are properly parsed
+        if (productData.images && typeof productData.images === 'string') {
+          try {
+            productData.images = JSON.parse(productData.images);
+          } catch (err) {
+            console.error('Error parsing images array:', err);
+          }
+        }
+
+        // Ensure all images exist for the selected unit
+        if (productData.images && typeof productData.images === 'object') {
+          setProduct(productData);
+        } else {
+          throw new Error('Product images are missing or empty for the selected unit');
+        }
+      } else {
+        throw new Error('No valid product data found');
+      }
+    } catch (error) {
+      console.error('Failed to fetch product details:', error);
+      Alert.alert('Error', 'No Product Found.');
+    }
+  };
 
   // Fetch product details once
   useEffect(() => {
-    const fetchProductDetail = async () => {
-      const suppliers = await getSupplierData();
-      const ids = suppliers.map(s => s.supplier_id);
-      const encodedIds = encodeURIComponent(JSON.stringify(ids));
-      try {
-        const url = `${config.BASE_URL}/productCatalog/getProductDetails?productId=${validProductId}&category=${subCategory}&sub_category=${category}&supplier_id=${encodedIds}`;
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        const dataJS = await response.json();
-        const parsedResults = dataJS.results;
-
-        if (Array.isArray(parsedResults) && parsedResults.length > 0) {
-          const productData = parsedResults[0];
-          const keys = Object.keys(productData.quantity);
-          setSelectedUnit(keys[0]); // Set default unit to the first one
-
-          // Ensure images are properly parsed
-          if (productData.images && typeof productData.images === 'string') {
-            try {
-              productData.images = JSON.parse(productData.images);
-            } catch (err) {
-              console.error('Error parsing images array:', err);
-            }
-          }
-
-          // Ensure all images exist for the selected unit
-          if (productData.images && typeof productData.images === 'object') {
-            setProduct(productData);
-          } else {
-            throw new Error('Product images are missing or empty for the selected unit');
-          }
-        } else {
-          throw new Error('No valid product data found');
-        }
-      } catch (error) {
-        console.error('Failed to fetch product details:', error);
-        Alert.alert('Error', 'No Product Found.');
-      }
-    };
 
     if (validProductId) {
       fetchProductDetail();
@@ -130,6 +133,7 @@ const ProductDetail = () => {
         const data = await response.json();
         if (data.status === 200) {
           await fetchCartItemCount('7417422095')
+          await fetchProductDetail()
           setIsItemAdded(true);
         } else {
           Alert.alert('Error', 'Failed to add item to cart.');
@@ -147,13 +151,9 @@ const ProductDetail = () => {
       const availableStock = product.quantity[selectedUnit];
       if (quantity < availableStock) {
         setQuantity((prev) => prev + 1);
-      } else {
-        if(availableStock === 0) {
-          setSoldOutMessage('Sold Out')
-        }  else {
-          setSoldOutMessage('');
-        }
-        Alert.alert('Maximum stock reached', `Only ${availableStock} items available in ${selectedUnit} unit.`);
+      }  else {
+        setInsufficientStock(true);
+        return; // Early exit to prevent adding more
       }
     }
   }, [product, selectedUnit, quantity]);
@@ -161,6 +161,9 @@ const ProductDetail = () => {
   const decrementQuantity = useCallback(() => {
     if (quantity > 1) {
       setQuantity((prev) => prev - 1);
+    } else {
+        setInsufficientStock(false);
+        return; // Early exit to prevent adding more
     }
   }, [quantity]);
 
@@ -238,11 +241,6 @@ const ProductDetail = () => {
               onPress={() => {
                 setSelectedUnit(unit);
                 setQuantity(1);
-                if (product.quantity[unit] === 0) {
-                  setSoldOutMessage('Sold Out')
-                } else {
-                  setSoldOutMessage('');
-                }
               }
               }
 
@@ -254,9 +252,10 @@ const ProductDetail = () => {
           );
         })}
       </View>
+      {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity</Text>}
 
       {/* Quantity Selector */}
-      <View style={styles.quantityContainer}>
+      {product.quantity[selectedUnit] !== 0 &&<View style={styles.quantityContainer}>
         <TouchableOpacity style={styles.quantityButton} onPress={decrementQuantity}>
           <Text style={styles.quantityButtonText}>-</Text>
         </TouchableOpacity>
@@ -264,12 +263,12 @@ const ProductDetail = () => {
         <TouchableOpacity style={styles.quantityButton} onPress={incrementQuantity}>
           <Text style={styles.quantityButtonText}>+</Text>
         </TouchableOpacity>
-      </View>
-
+      </View>}
+     
       {/* Add to Cart Button */}
-      {!soldOutMessage ? <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
+      {product.quantity[selectedUnit] !== 0 ? <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
         <Text style={styles.addToCartText}>Add to Cart</Text>
-      </TouchableOpacity> : <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
+      </TouchableOpacity> : <Text style={styles.soldOutText}>Sold Out</Text>}
 
 
 
@@ -440,6 +439,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     lineHeight: 20,
   },
+  insufficientStockText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 5,
+    marginBottom: 5
+  }, 
 });
 
 
