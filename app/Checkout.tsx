@@ -235,7 +235,7 @@ const CheckoutPage = () => {
                     <Text style={styles.quantityButton}>+</Text>
                   </TouchableOpacity>
                   </View>
-                  { item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity</Text>}
+                  { item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{item.available_quantity}</b></Text>}
                 </View>
 
               )}

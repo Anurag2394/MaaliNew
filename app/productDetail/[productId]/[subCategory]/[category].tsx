@@ -161,10 +161,9 @@ const ProductDetail = () => {
   const decrementQuantity = useCallback(() => {
     if (quantity > 1) {
       setQuantity((prev) => prev - 1);
-    } else {
+    } 
         setInsufficientStock(false);
-        return; // Early exit to prevent adding more
-    }
+        
   }, [quantity]);
 
   // Reset the selected image index whenever the selected unit changes
@@ -252,7 +251,7 @@ const ProductDetail = () => {
           );
         })}
       </View>
-      {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity</Text>}
+    
 
       {/* Quantity Selector */}
       {product.quantity[selectedUnit] !== 0 &&<View style={styles.quantityContainer}>
@@ -264,7 +263,7 @@ const ProductDetail = () => {
           <Text style={styles.quantityButtonText}>+</Text>
         </TouchableOpacity>
       </View>}
-     
+      {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{product.quantity[selectedUnit]}</b> </Text>}
       {/* Add to Cart Button */}
       {product.quantity[selectedUnit] !== 0 ? <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
         <Text style={styles.addToCartText}>Add to Cart</Text>
