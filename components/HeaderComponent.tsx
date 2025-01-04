@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   geoLocation: {
     backgroundColor: '#fff',
-    width: 250,
+    width: 100,
     fontSize: 10,
     marginTop: 0,
   },

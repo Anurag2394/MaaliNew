@@ -225,7 +225,7 @@ const CheckoutPage = () => {
                 <View style={styles.itemDetails}>
                   <Text style={styles.itemName}>{item.product_name}</Text>
                   <Text style={styles.itemSize}>Size: {item.size}</Text>
-                  <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{(item.price * item.quantity).toFixed(2)}</Text>
                 </View>
               </TouchableOpacity>
 
@@ -243,7 +243,7 @@ const CheckoutPage = () => {
                       <Text style={styles.quantityButton}>+</Text>
                     </TouchableOpacity>
                   </View>
-                  {item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{item.available_quantity}</b></Text>}
+                  <View>{item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <Text>{item.available_quantity}</Text></Text>}</View>
                 </View>
               )}
             </View>
@@ -274,9 +274,9 @@ const CheckoutPage = () => {
         />
       </View>
 
-      <View style={styles.total}>
-        <Text style={styles.totalText}>Total: ${subtotal.toFixed(2)}</Text>
-      </View>
+      {/* <View style={styles.total}>
+        {subtotal > 0 ? <Text style={styles.totalText}>Total: {subtotal.toFixed(2)}</Text> : 0}
+      </View> */}
 
       {/* Overlay Loader */}
       {overlayLoader && (

@@ -263,7 +263,7 @@ const ProductDetail = () => {
           <Text style={styles.quantityButtonText}>+</Text>
         </TouchableOpacity>
       </View>}
-      {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{product.quantity[selectedUnit]}</b> </Text>}
+      <View>{insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <Text>{product.quantity[selectedUnit]}</Text> </Text>}</View>
       {/* Add to Cart Button */}
       {product.quantity[selectedUnit] !== 0 ? <TouchableOpacity style={styles.addToCartButton} onPress={handleAddToCart}>
         <Text style={styles.addToCartText}>Add to Cart</Text>

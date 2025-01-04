@@ -362,7 +362,7 @@ const ProductList = () => {
                   </TouchableOpacity>
               
                 </View>}
-                {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <b>{currentProduct.quantity[selectedSizes[currentProduct.productId]]}</b></Text>}
+                {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity: <Text>{currentProduct.quantity[selectedSizes[currentProduct.productId]]}</Text></Text>}
                <View style={styles.buttonGroup}> 
                 {currentProduct.quantity[selectedSizes[currentProduct.productId]] !== 0 ? <TouchableOpacity
                   style={styles.addToCartButton}
