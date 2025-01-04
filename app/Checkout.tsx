@@ -5,16 +5,17 @@ import config from '@/config';
 
 const CheckoutPage = () => {
   const [items, setItems] = useState([]);
-  const [phoneNumber, setPhoneNumber] = useState(7417422095); // Assuming you get the phone number from some state or context
+  const [phoneNumber, setPhoneNumber] = useState(7417422095);
   const [user, setUser] = useState({
     name: '',
     email: '',
     address: '',
   });
-  const [subtotal, setSubtotal] = useState(0); // To store subtotal fetched from API
+  const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [soldOut, setSoldOut] = useState('')
-  const [soldOutSize, setSoldOutSize] = useState('')
+  const [soldOut, setSoldOut] = useState('');
+  const [soldOutSize, setSoldOutSize] = useState('');
+  const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
 
   const fetchCartDetails = async () => {
     try {
@@ -72,7 +73,6 @@ const CheckoutPage = () => {
       Alert.alert('Error', 'Something went wrong while fetching the data.');
     }
   };
- 
 
   const fetchCartItemCount = async (phoneNumber: string) => {
     try {
@@ -82,24 +82,23 @@ const CheckoutPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          phone_number: phoneNumber,  // Send phone_number in the request body
+          phone_number: phoneNumber,
         }),
       });
-  
+
       if (!response.ok) {
         throw new Error('Failed to fetch cart item count');
       }
-  
+
       const data = await response.json();
       const cartItemCount = data.results || 0;
-  
-      // Store the cart item count in AsyncStorage
+
       await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
-  
+
       return cartItemCount;
     } catch (error) {
       console.error('Error fetching cart item count:', error);
-      return 0;  // Return 0 in case of an error
+      return 0;
     }
   };
 
@@ -108,6 +107,7 @@ const CheckoutPage = () => {
   }, [phoneNumber]);
 
   const handleUpdateQuantity = (itemId, operation, size) => {
+    setOverlayLoader(true); // Show overlay loader when updating quantity
     const updatedItems = items.map(item => {
       if (item.product_id === itemId && item.size === size) {
         let updatedQuantity = item.quantity || 0;
@@ -130,7 +130,7 @@ const CheckoutPage = () => {
 
     const item = updatedItems.find(item => item.product_id === itemId);
     const quantity1 = item ? item.quantity : 0;
-    
+
     updateCartQuantity(itemId, quantity1, size);
   };
 
@@ -147,20 +147,23 @@ const CheckoutPage = () => {
     })
       .then(response => response.json())
       .then(data => {
+        setOverlayLoader(false); // Hide the overlay loader after update is done
         if (data.status === 507) {
-          setSoldOut(itemId)
-          setSoldOutSize(size)
+          setSoldOut(itemId);
+          setSoldOutSize(size);
         } else {
-           fetchCartItemCount('7417422095');
+          fetchCartItemCount('7417422095');
         }
       })
       .catch(error => {
+        setOverlayLoader(false); // Hide the overlay loader if an error occurs
         console.error('Error updating quantity:', error);
         Alert.alert('Error', 'Failed to update item quantity.');
       });
   };
 
   const handleRemoveItem = (itemId, size) => {
+    setOverlayLoader(true); // Show overlay loader when removing item
     fetch(`${config.CART_URL}/cart/removeItemFromCart`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -168,6 +171,7 @@ const CheckoutPage = () => {
     })
       .then(response => response.json())
       .then(data => {
+        setOverlayLoader(false); // Hide overlay loader after removal is done
         if (data.status === 200) {
           fetchCartDetails();
           Alert.alert('Success', 'Item removed from cart.');
@@ -176,6 +180,7 @@ const CheckoutPage = () => {
         }
       })
       .catch(error => {
+        setOverlayLoader(false); // Hide overlay loader if an error occurs
         console.error('Error removing item:', error);
         Alert.alert('Error', 'Failed to remove the item.');
       });
@@ -211,15 +216,19 @@ const CheckoutPage = () => {
                   <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                 </View>
               </View>
-              {soldOut === item.product_id && soldOutSize === item.size ? <View style={styles.soldout}>Sold Out</View> : <View style={styles.quantityContainer}>
-                <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
-                  <Text style={styles.quantityButton}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.quantityText}>{item.quantity}</Text>
-                <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
-                  <Text style={styles.quantityButton}>+</Text>
-                </TouchableOpacity>
-              </View> }
+              {soldOut === item.product_id && soldOutSize === item.size ? (
+                <View style={styles.soldout}>Sold Out</View>
+              ) : (
+                <View style={styles.quantityContainer}>
+                  <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
+                    <Text style={styles.quantityButton}>-</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.quantityText}>{item.quantity}</Text>
+                  <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
+                    <Text style={styles.quantityButton}>+</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ))
         )}
@@ -250,6 +259,13 @@ const CheckoutPage = () => {
       <View style={styles.total}>
         <Text style={styles.totalText}>Total: ${subtotal.toFixed(2)}</Text>
       </View>
+
+      {/* Overlay Loader */}
+      {overlayLoader && (
+        <View style={styles.overlay}>
+          <Text style={styles.loaderText}>Updating...</Text>
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -367,6 +383,22 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  loaderText: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
 
