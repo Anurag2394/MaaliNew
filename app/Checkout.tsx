@@ -15,6 +15,7 @@ const CheckoutPage = () => {
   const [loading, setLoading] = useState(false);
   const [soldOut, setSoldOut] = useState('');
   const [soldOutSize, setSoldOutSize] = useState('');
+  const [insufficentStock, setInsufficentStock] = useState({ itemId: null, size: null });
   const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
 
   const fetchCartDetails = async () => {
@@ -216,18 +217,22 @@ const CheckoutPage = () => {
                   <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
                 </View>
               </View>
-              {soldOut === item.product_id && soldOutSize === item.size ? (
+              {item.available_quantity === 0  ? (
                 <View style={styles.soldout}>Sold Out</View>
               ) : (
+                <View style={styles.stockContainer}>
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'decrement', item.size)}>
                     <Text style={styles.quantityButton}>-</Text>
                   </TouchableOpacity>
-                  <Text style={styles.quantityText}>{item.quantity}</Text>
+                  <Text style={styles.quantityText}>{item.quantity >= item.available_quantity ? item.available_quantity : item.quantity}</Text>
                   <TouchableOpacity onPress={() => handleUpdateQuantity(item.product_id, 'increment', item.size)}>
                     <Text style={styles.quantityButton}>+</Text>
                   </TouchableOpacity>
+                  </View>
+                  { item.quantity >= item.available_quantity && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity</Text>}
                 </View>
+
               )}
             </View>
           ))
@@ -337,6 +342,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  stockContainer: {
+   flexDirection: 'column',
+   width:100
+  },
   quantityButton: {
     fontSize: 20,
     marginHorizontal: 15,
@@ -400,6 +409,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  insufficientStockText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 5,
+  },  
 });
 
 export default CheckoutPage;

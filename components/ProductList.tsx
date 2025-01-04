@@ -34,38 +34,43 @@ const ProductList = () => {
   const [modalSlideAnim] = useState(new Animated.Value(0)); // For modal sliding animation
   const [fadeOutAnimation] = useState(new Animated.Value(1)); // For fade out of the "Go to Cart" button
   const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
+  const [insufficientStock, setInsufficientStock] = useState(false)
 
   const { product } = useLocalSearchParams();
   const router = useRouter();
 
   const queryTags = product || 'plants/cacti';
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
+
+
+  const fetchProducts = useCallback(async () => {
+    try {
         const suppliers = await getSupplierData();
         const ids = suppliers.map(s => s.supplier_id);
         const productRequestPayload = { tags: [queryTags], supplier_id: ids };
 
         const response = await fetch(`${config.BASE_URL}/productCatalog/getProductsByTags`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(productRequestPayload),
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(productRequestPayload),
         });
 
         const data = await response.json();
         if (typeof data.results === 'string') {
-          const parsedProducts = JSON.parse(data.results);
-          setProducts(parsedProducts);
+            const parsedProducts = JSON.parse(data.results);
+            setProducts(parsedProducts); // Update state with the products
         }
-      } catch (error) {
-        setProducts([]);
+    } catch (error) {
+        setProducts([]);  // Reset product list on error
         console.error('Failed to fetch products:', error);
-      }
-    };
+    }
+}, [queryTags]);
 
+
+
+  useEffect(() => {
     fetchProducts();
   }, [queryTags]);
 
@@ -81,11 +86,14 @@ const ProductList = () => {
       if (newQuantity < availableStock) {
         newQuantity += 1;
       } else {
-        setSoldOutMessage('Sold out');
+        setInsufficientStock(true);
         return; // Early exit to prevent adding more
       }
     } else if (action === 'decrement' && currentQuantity > 1) {
       newQuantity -= 1;
+      if (newQuantity < availableStock) {
+      setInsufficientStock(false);
+      }
     }
 
     const selectedSize = selectedSizes[product.productId] || 'Regular';
@@ -139,18 +147,18 @@ const ProductList = () => {
     const size = selectedSizes[product.productId] || 'Regular';
     const selectedPrice = product.price[size];
     const selectedDiscount = 0; // Set discount if needed
-
+  
     const currentQuantity = cart[product.productId]?.quantity || 1;
     const availableStock = product.quantity[size] || 0; // Get the stock for the selected size
-
+  
     if (currentQuantity > availableStock) {
       // If trying to add more than available stock, show "sold out"
-      setSoldOutMessage('Sold out');
+      setInsufficientStock(true);
       return; // Stop adding to cart
     }
-
-     const suppliers = await getSupplierData();
-
+  
+    const suppliers = await getSupplierData();
+  
     const payload = {
       phone_number: 7417422095,  // Make sure to fetch this from user session or state
       product_id: product.productId,
@@ -161,7 +169,7 @@ const ProductList = () => {
       supplierData: suppliers,
       size: size
     };
-
+  
     try {
       const response = await fetch('http://192.168.29.14:8002/cart/addItemToCart', {
         method: 'POST',
@@ -170,11 +178,16 @@ const ProductList = () => {
         },
         body: JSON.stringify(payload),
       });
-
+  
       const data = await response.json();
-
+  
       if (data.status === 200) {
-        await fetchCartItemCount('7417422095')
+        await fetchCartItemCount('7417422095');
+        
+        // Fetch products again to reload the product list
+        await fetchProducts();  // This is the updated line
+  
+        // Add the item to the cart state
         setCart((prevCart) => ({
           ...prevCart,
           [product.productId]: {
@@ -183,20 +196,18 @@ const ProductList = () => {
             discount: selectedDiscount,
           },
         }));
-
+  
         // Trigger modal closing animation
         Animated.timing(modalSlideAnim, {
           toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }).start();
-
+  
         // Wait for the animation to finish before hiding the modal
         setTimeout(() => {
           setIsModalVisible(false);
         }, 300);
-
-        
       } else {
         console.error('Error adding item to cart:', data.message || 'Unknown error');
       }
@@ -204,16 +215,15 @@ const ProductList = () => {
       console.error('Error during API call:', error);
     }
   };
+  
 
   const openModal = (product: Product) => {
-    console.log(product, 'Product');
     setCurrentProduct(product);
     const sizes = Object.keys(product.price);
     setIsModalVisible(true);
     setQuantity(1);
     setSelectedSizes((prev) => ({ ...prev, [product.productId]: sizes[0] }));
-    modalSlideAnim.setValue(0);
-
+    modalSlideAnim.setValue(0); 
     Animated.timing(modalSlideAnim, {
       toValue: 1,
       duration: 300,
@@ -234,7 +244,6 @@ const ProductList = () => {
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    console.log(item, 'njjj')
     const navigateToProductDetail = () => {
       router.push(`/productDetail/${item.productId}/${item.category}/${item.subCatagery}`);
     };
@@ -310,6 +319,7 @@ const ProductList = () => {
 
                 <View style={styles.sizeContainer}>
                   {Object.keys(currentProduct.price).map((size) => (
+                    
                     <TouchableOpacity
                       key={size}
                       style={[
@@ -326,6 +336,7 @@ const ProductList = () => {
                         }
                       }}
                     >
+                      
                       <Text style={styles.sizeButtonText}>{size}</Text>
                     </TouchableOpacity>
                   ))}
@@ -335,7 +346,7 @@ const ProductList = () => {
                   {`${currentProduct.currency} ${currentProduct.price[selectedSizes[currentProduct.productId] || 'Regular']}`}
                 </Text>
 
-                {!soldOutMessage && <View style={styles.quantityContainer}>
+                {currentProduct.quantity[selectedSizes[currentProduct.productId]] !== 0 && <View style={styles.quantityContainer}>
                   <TouchableOpacity
                     style={styles.quantityButton}
                     onPress={() => modifyCart(currentProduct, selectedSizes[currentProduct.productId], 'decrement')}
@@ -349,15 +360,19 @@ const ProductList = () => {
                   >
                     <Text style={styles.quantityText}>+</Text>
                   </TouchableOpacity>
+              
                 </View>}
-
+                {insufficientStock && <Text style={styles.insufficientStockText}>Insufficient stock. Added available quantity</Text>}
                <View style={styles.buttonGroup}> 
-                {!soldOutMessage ? <TouchableOpacity
+                {currentProduct.quantity[selectedSizes[currentProduct.productId]] !== 0 ? <TouchableOpacity
                   style={styles.addToCartButton}
                   onPress={() => handleAddToCart(currentProduct)}
                 >
-                  <Text style={styles.addToCartText}>Add to Cart</Text>
-                </TouchableOpacity> : <Text style={styles.soldOutText}>{soldOutMessage}</Text>}
+                  
+                <Text style={styles.addToCartText}>Add to Cart</Text>
+                </TouchableOpacity> : <Text style={styles.soldOutText}>Sold Out</Text>}
+             
+
 
                 <TouchableOpacity
                   style={styles.closeButton}
@@ -436,10 +451,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#28a745',
     padding: 10,
     borderRadius: 5,
+    textAlign: 'center'
   },
   addToCartText: {
     color: '#fff',
     fontWeight: 'bold',
+     textAlign: 'center'
   },
   modalContainer: {
     flex: 1,
@@ -527,6 +544,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  insufficientStockText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 5,
+    marginBottom: 5
+  },  
 });
 
 export default ProductList;
