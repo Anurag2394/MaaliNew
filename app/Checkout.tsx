@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ScrollView, View, Text, TextInput, Alert, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import config from '@/config';
+import { Button } from 'react-native-paper';
 
 const CheckoutPage = () => {
   const [items, setItems] = useState([]);
@@ -18,7 +19,7 @@ const CheckoutPage = () => {
   const [soldOutSize, setSoldOutSize] = useState('');
   const [insufficentStock, setInsufficentStock] = useState({ itemId: null, size: null });
   const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
-   const router = useRouter();
+  const router = useRouter();
 
   const fetchCartDetails = async () => {
     try {
@@ -77,122 +78,47 @@ const CheckoutPage = () => {
     }
   };
 
-  const fetchCartItemCount = async (phoneNumber: string) => {
+  const clearCart = async () => {
     try {
-      const response = await fetch('http://192.168.29.14:8002/cart/getCartItemCount', {
+      setOverlayLoader(true); // Show loader when clearing cart
+      const response = await fetch(`${config.CART_URL}/cart/clearCart`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           phone_number: phoneNumber,
+          soft_delete: 1, // Assuming 1 is the value for soft deletion
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch cart item count');
+        throw new Error('Failed to clear cart');
       }
 
       const data = await response.json();
-      const cartItemCount = data.results || 0;
 
-      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
+      if (data.status === 200) {
+        Alert.alert('Success', 'Cart has been cleared.');
+        AsyncStorage.setItem('cartItemCount', JSON.stringify(0));
 
-      return cartItemCount;
+        setItems([]); // Empty the items array after successful cart clear
+
+        setSubtotal(0); // Reset the subtotal
+      } else {
+        Alert.alert('Error', 'Failed to clear the cart.');
+      }
     } catch (error) {
-      console.error('Error fetching cart item count:', error);
-      return 0;
+      console.error('Error clearing cart:', error);
+      Alert.alert('Error', 'Something went wrong while clearing the cart.');
+    } finally {
+      setOverlayLoader(false); // Hide loader after operation is complete
     }
   };
 
   useEffect(() => {
     fetchCartDetails();
   }, [phoneNumber]);
-
-  const handleUpdateQuantity = (itemId, operation, size) => {
-    setOverlayLoader(true); // Show overlay loader when updating quantity
-    const updatedItems = items.map(item => {
-      if (item.product_id === itemId && item.size === size) {
-        let updatedQuantity = item.quantity || 0;
-
-        if (operation === 'increment' && updatedQuantity < item.available_quantity) {
-          updatedQuantity += 1;
-        } else if (operation === 'decrement' && updatedQuantity > 1) {
-          updatedQuantity -= 1;
-        } else if (operation === 'decrement' && updatedQuantity === 1) {
-          handleRemoveItem(itemId, size);
-          return null;
-        }
-
-        return { ...item, quantity: updatedQuantity };
-      }
-      return item;
-    }).filter(item => item !== null);
-
-    setItems(updatedItems);
-
-    console.log(updatedItems, 'gjjgj')
-
-    const item = updatedItems.find(item => (item.product_id === itemId && item.size === size));
-
-    console.log(item, 'jjj')
-    const quantity1 = item ? item.quantity : 0;
-
-
-    updateCartQuantity(itemId, quantity1, size);
-  };
-
-  const updateCartQuantity = (itemId, newQuantity, size) => {
-    fetch(`${config.CART_URL}/cart/updateItemQuantity`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_id: itemId,
-        phone_number: phoneNumber,
-        quantity: newQuantity,
-        size: size,
-      }),
-    })
-      .then(response => response.json())
-      .then(data => {
-        setOverlayLoader(false); // Hide the overlay loader after update is done
-        if (data.status === 507) {
-          setSoldOut(itemId);
-          setSoldOutSize(size);
-        } else {
-          fetchCartItemCount('7417422095');
-        }
-      })
-      .catch(error => {
-        setOverlayLoader(false); // Hide the overlay loader if an error occurs
-        console.error('Error updating quantity:', error);
-        Alert.alert('Error', 'Failed to update item quantity.');
-      });
-  };
-
-  const handleRemoveItem = (itemId, size) => {
-    setOverlayLoader(true); // Show overlay loader when removing item
-    fetch(`${config.CART_URL}/cart/removeItemFromCart`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, size: size, soft_delete: 1 }),
-    })
-      .then(response => response.json())
-      .then(data => {
-        setOverlayLoader(false); // Hide overlay loader after removal is done
-        if (data.status === 200) {
-          fetchCartDetails();
-          Alert.alert('Success', 'Item removed from cart.');
-        } else {
-          Alert.alert('Error', 'There was an issue removing the item.');
-        }
-      })
-      .catch(error => {
-        setOverlayLoader(false); // Hide overlay loader if an error occurs
-        console.error('Error removing item:', error);
-        Alert.alert('Error', 'Failed to remove the item.');
-      });
-  };
 
   if (loading) {
     return (
@@ -208,6 +134,7 @@ const CheckoutPage = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionHeader}>Items</Text>
+        { <Button  onPress={clearCart}>Clear Cart</Button>}
         {items.length === 0 ? (
           <Text>No items in the cart.</Text>
         ) : (
@@ -251,33 +178,6 @@ const CheckoutPage = () => {
         )}
       </View>
 
-
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>Shipping Details</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Name"
-          value={user.name}
-          onChangeText={text => setUser({ ...user, name: text })}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={user.email}
-          onChangeText={text => setUser({ ...user, email: text })}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Address"
-          value={user.address}
-          onChangeText={text => setUser({ ...user, address: text })}
-        />
-      </View>
-
-      {/* <View style={styles.total}>
-        {subtotal > 0 ? <Text style={styles.totalText}>Total: {subtotal.toFixed(2)}</Text> : 0}
-      </View> */}
-
       {/* Overlay Loader */}
       {overlayLoader && (
         <View style={styles.overlay}>
@@ -293,6 +193,12 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 15,
     backgroundColor: '#fff',
+  },
+  Button: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    backgroundColor: '#000' ,
+    padding: 10,
   },
   header: {
     fontSize: 24,
