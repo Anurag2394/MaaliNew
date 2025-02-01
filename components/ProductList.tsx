@@ -35,6 +35,7 @@ const ProductList = () => {
   const [fadeOutAnimation] = useState(new Animated.Value(1)); // For fade out of the "Go to Cart" button
   const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
   const [insufficientStock, setInsufficientStock] = useState(false)
+  const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
 
   const { product } = useLocalSearchParams();
   const router = useRouter();
@@ -144,6 +145,7 @@ const ProductList = () => {
 
   // Handle Add to Cart Action
   const handleAddToCart = async (product: Product) => {
+    setOverlayLoader(true)
     const size = selectedSizes[product.productId] || 'Regular';
     const selectedPrice = product.price[size];
     const selectedDiscount = 0; // Set discount if needed
@@ -183,7 +185,7 @@ const ProductList = () => {
   
       if (data.status === 200) {
         await fetchCartItemCount('7417422095');
-        
+        setOverlayLoader(false)
         // Fetch products again to reload the product list
         await fetchProducts();  // This is the updated line
   
@@ -283,7 +285,7 @@ const ProductList = () => {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={styles.productItem}>
       {products.length > 0 ? (
         <FlatList
           data={products}
@@ -298,6 +300,12 @@ const ProductList = () => {
 
       {isModalVisible && currentProduct && (
         <Modal visible={isModalVisible} onRequestClose={closeModal} transparent={true} animationType="fade">
+              {/* Overlay Loader */}
+              {overlayLoader && (
+              <View style={styles.overlay}>
+                <Text style={styles.loaderText}>Updating...</Text>
+              </View>
+            )}
           <TouchableWithoutFeedback onPress={closeModal}>
             <Animated.View style={[styles.modalContainer, { opacity: fadeOutAnimation }]}>
               <Animated.View
@@ -386,6 +394,7 @@ const ProductList = () => {
           </TouchableWithoutFeedback>
         </Modal>
       )}
+   
     </View>
   );
 };
@@ -405,6 +414,10 @@ const styles = StyleSheet.create({
     margin: 100,
     fontSize: 20,
   },
+  productItem: {
+      alignItems: 'flex-start',
+      justifyContent: 'space-between'
+  },
   image: {
     width: 150,
     height: 150,
@@ -417,6 +430,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     padding: 5,
     borderRadius: 5,
+  },
+  loaderText: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   ribbonText: {
     color: '#fff',
@@ -468,7 +486,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     padding: 20,
     borderRadius: 12,
-    width: '50%',  // Reduced width to give a margin on the sides
+    width: '100%',  // Reduced width to give a margin on the sides
     shadowColor: '#000',  // Adding shadow to the modal for a floating effect
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 10 },
@@ -550,6 +568,17 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 5
   },  
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
+  },
 });
 
 export default ProductList;

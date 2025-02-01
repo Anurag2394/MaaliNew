@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ScrollView, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { getSupplierData } from '@/utiles/auth';
@@ -20,7 +20,7 @@ const ProductDetail = () => {
   const [careInstructions, setCareInstructions] = useState({});
   const [soldOutMessage, setSoldOutMessage] = useState(''); // To display sold out message
   const [insufficientStock, setInsufficientStock] = useState(false)
-
+  const [overlayLoader, setOverlayLoader] = useState(false); // State to manage loader visibility
 
   const fetchProductDetail = async () => {
     const suppliers = await getSupplierData();
@@ -107,6 +107,7 @@ const ProductDetail = () => {
 
   // Handle Add to Cart
   const handleAddToCart = useCallback(async () => {
+    setOverlayLoader(true)
     if (product) {
       try {
         const selectedDiscount = 0;
@@ -135,6 +136,7 @@ const ProductDetail = () => {
           await fetchCartItemCount('7417422095')
           await fetchProductDetail()
           setIsItemAdded(true);
+          setOverlayLoader(false)
         } else {
           Alert.alert('Error', 'Failed to add item to cart.');
         }
@@ -180,7 +182,14 @@ const ProductDetail = () => {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Image Slider */}
+         {overlayLoader && (
+              <Modal visible={overlayLoader} onRequestClose={overlayLoader} transparent={true} animationType="fade">
+         
+                    <View style={styles.overlay}>
+                      <Text style={styles.loaderText}>Updating...</Text>
+                    </View>
+                  
+                  </Modal>)}
       <View style={styles.imageSlider}>
         {selectedUnitImages && selectedUnitImages.length > 0 ? (
           <>
@@ -335,6 +344,22 @@ const styles = StyleSheet.create({
   productDescription: {
     fontSize: 16,
     marginVertical: 4,
+  },
+  loaderText: {
+    fontSize: 24,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 999,
   },
   price: {
     fontSize: 18,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { getSupplierData } from '@/utiles/auth';
 import { ScrollView, View, Text, TextInput, Alert, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import config from '@/config';
 import { Button } from 'react-native-paper';
@@ -56,10 +57,11 @@ const CheckoutPage = () => {
           }
 
           const subtotalData = await subtotalResponse.json();
-
+          console.log(typeof subtotalData.results, 'jjj')
           let cardTotal = typeof subtotalData.results === 'string' ? subtotalData.results : JSON.stringify(subtotalData.results);
           cardTotal = cardTotal.replace(/Decimal\(['"]?([0-9\.]+)['"]?\)/g, (match, p1) => p1);
           cardTotal = JSON.parse(cardTotal.replace(/'/g, '"'));
+          console.log( cardTotal.subtotal, 'jjj')
 
           if (cardTotal && cardTotal.subtotal) {
             const total = parseFloat(cardTotal.subtotal);
@@ -114,6 +116,126 @@ const CheckoutPage = () => {
     } finally {
       setOverlayLoader(false); // Hide loader after operation is complete
     }
+  };
+
+
+  
+  const handleUpdateQuantity = (itemId, operation, size) => {
+    setOverlayLoader(true); // Show overlay loader when updating quantity
+    const updatedItems = items.map(item => {
+      if (item.product_id === itemId && item.size === size) {
+        let updatedQuantity = item.quantity || 0;
+
+        if (operation === 'increment' && updatedQuantity < item.available_quantity) {
+          updatedQuantity += 1;
+        } else if (operation === 'decrement' && updatedQuantity > 1) {
+          updatedQuantity -= 1;
+        } else if (operation === 'decrement' && updatedQuantity === 1) {
+          handleRemoveItem(itemId, size);
+          return null;
+        }
+
+        return { ...item, quantity: updatedQuantity };
+      }
+      return item;
+    }).filter(item => item !== null);
+
+    setItems(updatedItems);
+
+    console.log(updatedItems, 'gjjgj')
+
+    const item = updatedItems.find(item => (item.product_id === itemId && item.size === size));
+
+    console.log(item, 'jjj')
+    const quantity1 = item ? item.quantity : 0;
+
+
+    updateCartQuantity(itemId, quantity1, size);
+  };
+
+  const fetchCartItemCount = async (phoneNumber: string) => {
+    try {
+      const response = await fetch('http://192.168.29.14:8002/cart/getCartItemCount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_number: phoneNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart item count');
+      }
+
+      const data = await response.json();
+      const cartItemCount = data.results || 0;
+
+      await AsyncStorage.setItem('cartItemCount', JSON.stringify(cartItemCount));
+
+      return cartItemCount;
+    } catch (error) {
+      console.error('Error fetching cart item count:', error);
+      return 0;
+    }
+  };
+
+
+
+  const updateCartQuantity = async(itemId, newQuantity, size) => {
+        const suppliers = await getSupplierData();
+    fetch(`${config.CART_URL}/cart/updateItemQuantity`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        product_id: itemId,
+        phone_number: phoneNumber,
+        quantity: newQuantity,
+        size: size,
+        supplierData: suppliers,
+        
+      }),
+    })
+      .then(response => response.json())
+      .then(data => {
+        setOverlayLoader(false); // Hide the overlay loader after update is done
+        if (data.status === 507) {
+          setSoldOut(itemId);
+          setSoldOutSize(size);
+        } else {
+          fetchCartItemCount('7417422095');
+        }
+      })
+      .catch(error => {
+        setOverlayLoader(false); // Hide the overlay loader if an error occurs
+        console.error('Error updating quantity:', error);
+        Alert.alert('Error', 'Failed to update item quantity.');
+      });
+  };
+
+  const handleRemoveItem = (itemId, size) => {
+    setOverlayLoader(true); // Show overlay loader when removing item
+    fetch(`${config.CART_URL}/cart/removeItemFromCart`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product_id: itemId, phone_number: phoneNumber, size: size, soft_delete: 1 }),
+    })
+      .then(response => response.json())
+      .then(data => {
+        setOverlayLoader(false); // Hide overlay loader after removal is done
+        if (data.status === 200) {
+          fetchCartDetails();
+          Alert.alert('Success', 'Item removed from cart.');
+        } else {
+          Alert.alert('Error', 'There was an issue removing the item.');
+        }
+      })
+      .catch(error => {
+        setOverlayLoader(false); // Hide overlay loader if an error occurs
+        console.error('Error removing item:', error);
+        Alert.alert('Error', 'Failed to remove the item.');
+      });
   };
 
   useEffect(() => {
@@ -176,6 +298,10 @@ const CheckoutPage = () => {
             </View>
           ))
         )}
+      </View>
+
+       <View style={styles.total}>
+        {subtotal > 0 ? <Text style={styles.totalText}>Total: {subtotal.toFixed(2)}</Text> : 0}
       </View>
 
       {/* Overlay Loader */}
